@@ -186,7 +186,7 @@ if __name__ == "__main__":
 
 
     HELP_MENU = """
-        [bold yellow]/file <path> [prompt][/bold yellow] : Nạp file văn bản/code vào câu hỏi
+    [bold yellow]/file <path> [prompt][/bold yellow] : Nạp file văn bản/code vào câu hỏi
     [bold yellow]/save [tên_file][/bold yellow]       : Lưu lịch sử trò chuyện ra file .json
     [bold yellow]/load <tên_file>[/bold yellow]       : Nạp lại lịch sử trò chuyện từ file .json
     [bold yellow]/reset[/bold yellow]                 : Dọn sạch ngữ cảnh bộ nhớ
