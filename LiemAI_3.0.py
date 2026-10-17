@@ -362,7 +362,7 @@ class LiemAIApp:
         os.system("cls" if os.name == "nt" else "clear")
         banner_text = Text.from_markup(
             "[bold cyan]╔══════════════════════════════════════════════════════════════╗\n"
-            "║[/bold cyan]        [bold magenta]✨ LIEM AI 3.0 — MULTI-MODEL TERMINAL STUDIO ✨[/bold magenta]       [bold cyan]║\n"
+            "║[/bold cyan]        [bold magenta]✨ LiemAI 3.0 — MULTI-MODEL TERMINAL STUDIO ✨[/bold magenta]       [bold cyan]║\n"
             "║[/bold cyan]      [dim]Kiến trúc OOP • Dual-Engine Streaming • Smart Context[/dim]   [bold cyan]║\n"
             "╚══════════════════════════════════════════════════════════════╝[/bold cyan]"
         )

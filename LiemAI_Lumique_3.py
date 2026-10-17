@@ -21,7 +21,7 @@ class LiemConfig:
     MAX_CONTEXT_TURNS = 12  # Giữ 12 message gần nhất như bản 2.1
     QUESTION_LIMIT = 5      # Giới hạn bản Free
     SECRET_KEY = "key"      # Mã kích hoạt Premium
-    PROMPT_FILE = "prompt_v20.txt"
+    PROMPT_FILE = "prompt_v30.txt"
 
     GEMINI_API_KEY = (
         os.getenv("GEMINI_API_KEY_V20")
@@ -50,14 +50,14 @@ class ChatState:
         self.http_session = requests.Session()
 
     def get_system_prompt(self) -> str:
-        for file_candidate in [LiemConfig.PROMPT_FILE, "prompt_v15.txt", "prompt_v10.txt"]:
+        for file_candidate in [LiemConfig.PROMPT_FILE, "prompt_v20.txt", "prompt_v15.txt"]:
             if os.path.isfile(file_candidate):
                 try:
                     with open(file_candidate, "r", encoding="utf-8") as f:
                         return f.read().replace("{name}", self.user_name)
                 except Exception:
                     pass
-        return f"You are LiemAI 3.0, an intelligent, helpful AI collaborator chatting with {self.user_name}."
+        return f"You are LiemAI Lumique 3, an intelligent, helpful AI collaborator chatting with {self.user_name}."
 
     def get_trimmed_history(self) -> List[Dict[str, str]]:
         sliced = self.history[-LiemConfig.MAX_CONTEXT_TURNS:] if len(self.history) > LiemConfig.MAX_CONTEXT_TURNS else list(self.history)
@@ -137,7 +137,7 @@ HTML_TEMPLATE = r"""
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>LiemAI 3.0 Studio</title>
+    <title>LiemAI Lumique 3</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/tokyo-night-dark.min.css">
@@ -165,10 +165,19 @@ HTML_TEMPLATE = r"""
         <div class="space-y-4 overflow-y-auto pr-1">
             <!-- Logo & Version -->
             <div class="flex items-center justify-between px-2 pt-1">
-                <div class="flex items-center gap-2.5">
-                    <div class="w-8 h-8 rounded-xl bg-gradient-to-tr from-blue-600 via-indigo-500 to-purple-500 flex items-center justify-center font-bold text-white shadow-lg shadow-indigo-500/20">L</div>
+                <div class="flex items-center gap-3">
+                    <!-- Ảnh cờ online, nếu lỗi mạng (onerror) sẽ tự ẩn đi và hiện chữ VN thay thế -->
+                    <div class="relative w-10 h-10 shrink-0">
+                        <img src="https://flagcdn.com/w80/vn.png" alt="VN Flag" 
+                             class="w-10 h-10 object-contain rounded-md shadow-md relative z-10"
+                             onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                        <!-- Khối chữ VN dự phòng (mặc định ẩn, chỉ hiện lên khi ảnh lỗi) -->
+                        <div class="absolute inset-0 hidden w-10 h-10 rounded-xl bg-gradient-to-tr from-red-600 via-rose-500 to-amber-400 items-center justify-center font-extrabold text-white text-xs tracking-wider shadow-lg shadow-red-500/20 border border-red-400/30 z-0">
+                            VN
+                        </div>
+                    </div>
                     <div>
-                        <h1 class="font-bold text-base tracking-tight text-white">LiemAI <span class="text-xs px-1.5 py-0.5 rounded bg-indigo-500/20 text-indigo-300 font-semibold">3.0</span></h1>
+                        <h1 class="font-bold text-base tracking-tight text-white">LiemAI <span class="text-xs px-1.5 py-0.5 rounded bg-rose-500/20 text-rose-300 font-semibold">Lumique 3</span></h1>
                         <p class="text-[11px] text-slate-400">Multi-Model Web Studio</p>
                     </div>
                 </div>
@@ -260,13 +269,13 @@ HTML_TEMPLATE = r"""
                 <h2 class="text-2xl md:text-3xl font-bold bg-gradient-to-r from-blue-400 via-indigo-300 to-purple-400 bg-clip-text text-transparent">
                     Xin chào <span id="welcomeName">Lieman</span>, hôm nay tôi có thể giúp gì cho bạn?
                 </h2>
-                <p class="text-sm text-slate-400">LiemAI 3.0 tích hợp truyền tải trực tiếp (SSE Streaming), đính kèm tài liệu/code và chuyển đổi nóng giữa Gemini & Groq.</p>
+                <p class="text-sm text-slate-400">LiemAI Lumique 3 tích hợp truyền tải trực tiếp (SSE Streaming), đính kèm tài liệu/code và chuyển đổi nóng giữa Gemini & Groq.</p>
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-3 w-full text-left pt-2">
                     <button onclick="quickPrompt('Hãy tóm tắt các điểm mạnh của kiến trúc OOP trong dự án của tôi.')" class="p-3.5 rounded-xl bg-[#161b22] hover:bg-slate-800/90 border border-slate-800 transition">
                         <div class="text-xs font-semibold text-indigo-400 mb-1">💻 Phân tích Code & OOP</div>
                         <div class="text-xs text-slate-300">Kiểm tra cấu trúc hướng đối tượng và đề xuất cải tiến</div>
                     </button>
-                    <button onclick="quickPrompt('Hãy giúp tôi phác thảo diễn biến tiếp theo cho tiểu thuyết Biên Niên Sử Inependia.')" class="p-3.5 rounded-xl bg-[#161b22] hover:bg-slate-800/90 border border-slate-800 transition">
+                    <button onclick="quickPrompt('Hãy giúp tôi phác thảo diễn biến tiếp theo cho tiểu thuyết.')" class="p-3.5 rounded-xl bg-[#161b22] hover:bg-slate-800/90 border border-slate-800 transition">
                         <div class="text-xs font-semibold text-purple-400 mb-1">✒️ Sáng tác & Cốt truyện</div>
                         <div class="text-xs text-slate-300">Phát triển kịch bản và chiều sâu tâm lý nhân vật</div>
                     </button>
@@ -371,7 +380,7 @@ HTML_TEMPLATE = r"""
             } else {
                 wrapper.className = "flex gap-3 items-start max-w-4xl";
                 wrapper.innerHTML = `
-                    <div class="w-8 h-8 rounded-xl bg-gradient-to-tr from-blue-600 to-purple-500 flex items-center justify-center text-xs font-bold text-white shrink-0 mt-0.5">AI</div>
+                    <div class="w-8 h-8 rounded-xl bg-gradient-to-tr from-black-600 to-red-500 flex items-center justify-center text-xs font-bold text-white shrink-0 mt-0.5">AI</div>
                     <div class="flex-1 bg-[#161b22] border border-slate-800 rounded-2xl rounded-tl-sm px-5 py-3.5 text-sm prose prose-invert max-w-none message-content">${htmlContent}</div>
                 `;
             }
@@ -649,7 +658,7 @@ def api_load_session():
 @app.route("/api/export_md")
 def api_export_md():
     lines = [
-        f"# Lịch sử trò chuyện LiemAI 3.0 - {state.user_name}",
+        f"# Lịch sử trò chuyện LiemAI - {state.user_name}",
         f"*Xuất lúc: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}*\n\n---\n"
     ]
     for m in state.history:
@@ -667,7 +676,7 @@ def api_export_md():
 def api_chat():
     if not state.is_premium and state.num_of_questions >= LiemConfig.QUESTION_LIMIT:
         return jsonify({
-            "error": f"Bạn đã hết {LiemConfig.QUESTION_LIMIT} lượt hỏi miễn phí! Vui lòng nhập mã khóa Premium ở góc trái màn hình."
+            "error": f"Bạn đã hết {LiemConfig.QUESTION_LIMIT} lượt hỏi miễn phí! Vui lòng nhập mã khóa Lumique Premium ở góc trái màn hình."
         }), 403
 
     data = request.json or {}
@@ -758,6 +767,6 @@ def api_chat():
 if __name__ == "__main__":
     port = 5000
     url = f"http://127.0.0.1:{port}"
-    print(f"🚀 Đang khởi động LiemAI 3.0 Web Studio tại: {url}")
+    print(f"🚀 Đang khởi động LiemAI Lumique 3 tại: {url}")
     threading.Timer(1.0, lambda: webbrowser.open(url)).start()
     app.run(host="127.0.0.1", port=port, debug=False, threaded=True)
