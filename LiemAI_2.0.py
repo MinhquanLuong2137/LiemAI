@@ -115,7 +115,7 @@ def handle_file_command(text):
 
 
 def AI_response(question):
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-3.7-flash:streamGenerateContent?alt=sse&key={GEMINI_API_KEY}"
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-4-argon:streamGenerateContent?alt=sse&key={GEMINI_API_KEY}"
     headers = {"Content-Type": "application/json"}
 
     chat_history.append({
