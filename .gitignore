@@ -4,3 +4,4 @@
 *.png
 __pycache__/
 *_demo.py
+*.exe
