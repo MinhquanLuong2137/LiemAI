@@ -102,6 +102,3 @@ Execute these commands directly inside the terminal prompt:
 * Appreciation to the open-source communities behind Python and web libraries including `rich`, `flask`, `requests`, `python-dotenv`, **Tailwind CSS**, **Marked.js**, and **Highlight.js**.
 
 ---
-
-> **💡 Mẹo nhỏ để đồng bộ tên gọi `LiemAI Lumique 3` trên bản Web:**
-> *Trong file code Web ở lượt trước, bạn chỉ cần đổi tên file từ `LiemAI_3.0_Web.py` thành `LiemAI_Lumique_3.py` là được.*
