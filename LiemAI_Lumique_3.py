@@ -4,7 +4,7 @@ import os
 import threading
 import webbrowser
 from datetime import datetime
-from typing import Dict, List, Optional, Tuple;
+from typing import Dict, List, Optional, Tuple
 
 import requests
 from dotenv import load_dotenv
@@ -22,6 +22,7 @@ class LiemConfig:
     QUESTION_LIMIT = 5      # Giới hạn bản Free
     SECRET_KEY = "key"      # Mã kích hoạt Premium
     PROMPT_FILE = "prompt_v30.txt"
+    INTELLIGENCE_FILE = "liemai_intelligence.json"
 
     GEMINI_API_KEY = (
         os.getenv("GEMINI_API_KEY_V20")
@@ -49,15 +50,80 @@ class ChatState:
         self.history: List[Dict[str, str]] = []
         self.http_session = requests.Session()
 
+        # Trí thông minh cá nhân & Kỹ năng (Skills)
+        self.personal_memory: str = (
+            "Người dùng là sinh viên ngành Kỹ thuật Máy tính (IT2) tại ĐH Bách Khoa Hà Nội, "
+            "đam mê lập trình OOP và là tác giả tiểu thuyết Biên Niên Sử Inependia."
+        )
+        self.skills: List[Dict] = [
+            {
+                "id": "skill_oop",
+                "name": "💻 Chuyên gia OOP & Clean Code",
+                "instruction": "Khi phân tích code, luôn kiểm tra kỹ 4 tính chất OOP, nguyên lý SOLID, bắt lỗi tiềm ẩn và đề xuất code sạch, tối ưu.",
+                "enabled": True
+            },
+            {
+                "id": "skill_novel",
+                "name": "✒️ Cố vấn Tiểu thuyết & Cốt truyện",
+                "instruction": "Khi thảo luận về văn học hoặc kịch bản, hãy phân tích sâu tâm lý nhân vật, tính nhất quán của cốt truyện và dùng văn phong giàu cảm xúc.",
+                "enabled": False
+            },
+            {
+                "id": "skill_concise",
+                "name": "⚡ Trả lời siêu cô đọng",
+                "instruction": "Trả lời đi thẳng vào trọng tâm, súc tích, ưu tiên dùng gạch đầu dòng và bảng biểu, bỏ qua các câu dẫn dắt rườm rà.",
+                "enabled": False
+            }
+        ]
+        self.load_intelligence()
+
+    def load_intelligence(self):
+        if os.path.isfile(LiemConfig.INTELLIGENCE_FILE):
+            try:
+                with open(LiemConfig.INTELLIGENCE_FILE, "r", encoding="utf-8") as f:
+                    data = json.load(f)
+                self.personal_memory = data.get("personal_memory", self.personal_memory)
+                if "skills" in data and isinstance(data["skills"], list):
+                    self.skills = data["skills"]
+            except Exception:
+                pass
+
+    def save_intelligence(self):
+        try:
+            with open(LiemConfig.INTELLIGENCE_FILE, "w", encoding="utf-8") as f:
+                json.dump(
+                    {"personal_memory": self.personal_memory, "skills": self.skills},
+                    f,
+                    ensure_ascii=False,
+                    indent=2
+                )
+        except Exception:
+            pass
+
     def get_system_prompt(self) -> str:
+        base_prompt = f"You are LiemAI Lumique 3, an intelligent, helpful AI collaborator chatting with {self.user_name}."
         for file_candidate in [LiemConfig.PROMPT_FILE, "prompt_v20.txt", "prompt_v15.txt"]:
             if os.path.isfile(file_candidate):
                 try:
                     with open(file_candidate, "r", encoding="utf-8") as f:
-                        return f.read().replace("{name}", self.user_name)
+                        base_prompt = f.read().replace("{name}", self.user_name)
+                        break
                 except Exception:
                     pass
-        return f"You are LiemAI Lumique 3, an intelligent, helpful AI collaborator chatting with {self.user_name}."
+
+        # Ghép thêm Trí thông minh cá nhân & các Kỹ năng đang bật
+        extra_blocks = []
+        if self.personal_memory.strip():
+            extra_blocks.append(f"[PERSONAL INTELLIGENCE & USER MEMORY]\n{self.personal_memory.strip()}")
+
+        active_skills = [s for s in self.skills if s.get("enabled")]
+        if active_skills:
+            skill_lines = "\n".join([f"- {s['name']}: {s['instruction']}" for s in active_skills])
+            extra_blocks.append(f"[ACTIVE CUSTOM SKILLS]\n{skill_lines}")
+
+        if extra_blocks:
+            return base_prompt + "\n\n" + "\n\n".join(extra_blocks)
+        return base_prompt
 
     def get_trimmed_history(self) -> List[Dict[str, str]]:
         sliced = self.history[-LiemConfig.MAX_CONTEXT_TURNS:] if len(self.history) > LiemConfig.MAX_CONTEXT_TURNS else list(self.history)
@@ -99,7 +165,6 @@ class ChatState:
     def save_to_file(self, filename: str):
         if not filename.endswith(".json"):
             filename += ".json"
-        # Định dạng tương thích ngược hoàn toàn với LiemAI 2.0 & 2.1
         data = [
             {
                 "role": "user" if m["role"] == "user" else "model",
@@ -129,11 +194,11 @@ state = ChatState()
 
 
 # =====================================================================
-# 2. GIAO DIỆN WEB (HTML5 + TAILWIND CSS + MARKED.JS + HIGHLIGHT.JS)
+# 2. GIAO DIỆN WEB (TÔNG ĐỎ DỊU + 3 CHẾ ĐỘ THEME + SKILLS & MEMORY)
 # =====================================================================
 HTML_TEMPLATE = r"""
 <!DOCTYPE html>
-<html lang="vi" class="dark">
+<html lang="vi" data-theme="dark">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -144,178 +209,322 @@ HTML_TEMPLATE = r"""
     <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
-        body { font-family: 'Inter', sans-serif; background-color: #0e1117; color: #e2e8f0; }
+
+        /* BIẾN MÀU CHO 3 CHẾ ĐỘ GIAO DIỆN (DARK / LIGHT / HIGH CONTRAST) */
+        :root, html[data-theme="dark"] {
+            --bg-main: #0f0f12;
+            --bg-sidebar: #16151a;
+            --bg-card: #1d1b22;
+            --bg-input: #18161c;
+            --border-color: #2d262e;
+            --text-primary: #f1f5f9;
+            --text-secondary: #94a3b8;
+            --bubble-ai: #18161c;
+            --bubble-user: rgba(225, 29, 72, 0.16);
+            --bubble-user-border: rgba(244, 63, 94, 0.35);
+            --code-bg: #09090b;
+        }
+
+        html[data-theme="light"] {
+            --bg-main: #fffafb;
+            --bg-sidebar: #f8f1f3;
+            --bg-card: #ffffff;
+            --bg-input: #ffffff;
+            --border-color: #ead5dc;
+            --text-primary: #1e293b;
+            --text-secondary: #64748b;
+            --bubble-ai: #ffffff;
+            --bubble-user: #ffe4e6;
+            --bubble-user-border: #fda4af;
+            --code-bg: #1e1e24;
+        }
+
+        html[data-theme="contrast"] {
+            --bg-main: #000000;
+            --bg-sidebar: #000000;
+            --bg-card: #0a0a0a;
+            --bg-input: #050505;
+            --border-color: #fb7185;
+            --text-primary: #ffffff;
+            --text-secondary: #fda4af;
+            --bubble-ai: #0a0a0a;
+            --bubble-user: #3b0712;
+            --bubble-user-border: #fb7185;
+            --code-bg: #000000;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg-main);
+            color: var(--text-primary);
+            transition: background-color 0.2s ease, color 0.2s ease;
+        }
+        .theme-sidebar { background-color: var(--bg-sidebar); border-color: var(--border-color); }
+        .theme-main { background-color: var(--bg-main); }
+        .theme-card { background-color: var(--bg-card); border-color: var(--border-color); }
+        .theme-input { background-color: var(--bg-input); border-color: var(--border-color); color: var(--text-primary); }
+        .theme-text-sub { color: var(--text-secondary); }
+        .theme-border { border-color: var(--border-color); }
+        .theme-bubble-ai { background-color: var(--bubble-ai); border-color: var(--border-color); color: var(--text-primary); }
+        .theme-bubble-user { background-color: var(--bubble-user); border-color: var(--bubble-user-border); color: var(--text-primary); }
+
         ::-webkit-scrollbar { width: 6px; height: 6px; }
         ::-webkit-scrollbar-track { background: transparent; }
-        ::-webkit-scrollbar-thumb { background: #334155; border-radius: 3px; }
-        .prose pre { background-color: #090d16 !important; border: 1px solid #1e293b; border-radius: 0.75rem; padding: 1rem; margin: 0.75rem 0; overflow-x: auto; position: relative; }
-        .prose code { font-size: 0.875rem; color: #38bdf8; }
+        ::-webkit-scrollbar-thumb { background: #4c353e; border-radius: 3px; }
+        .prose pre { background-color: var(--code-bg) !important; border: 1px solid var(--border-color); border-radius: 0.75rem; padding: 1rem; margin: 0.75rem 0; overflow-x: auto; color: #f8fafc; }
+        .prose code { font-size: 0.875rem; color: #fb7185; font-weight: 500; }
         .prose pre code { color: #e2e8f0; }
         .prose p { margin-bottom: 0.75rem; line-height: 1.65; }
         .prose ul, .prose ol { margin-left: 1.5rem; margin-bottom: 0.75rem; list-style-type: disc; }
         .prose table { width: 100%; border-collapse: collapse; margin: 1rem 0; }
-        .prose th, .prose td { border: 1px solid #334155; padding: 0.5rem 0.75rem; text-align: left; }
-        .prose th { background-color: #1e293b; }
+        .prose th, .prose td { border: 1px solid var(--border-color); padding: 0.5rem 0.75rem; text-align: left; }
+        .prose th { background-color: rgba(244, 63, 94, 0.12); }
     </style>
 </head>
 <body class="h-screen flex overflow-hidden select-none">
 
     <!-- SIDEBAR TRÁI -->
-    <aside class="w-72 bg-[#161b22] border-r border-slate-800 flex flex-col justify-between p-4 shrink-0">
-        <div class="space-y-4 overflow-y-auto pr-1">
+    <aside class="w-72 theme-sidebar border-r flex flex-col justify-between p-4 shrink-0">
+        <div class="space-y-3.5 overflow-y-auto pr-1">
             <!-- Logo & Version -->
             <div class="flex items-center justify-between px-2 pt-1">
                 <div class="flex items-center gap-3">
-                    <!-- Ảnh cờ online, nếu lỗi mạng (onerror) sẽ tự ẩn đi và hiện chữ VN thay thế -->
                     <div class="relative w-10 h-10 shrink-0">
                         <img src="https://flagcdn.com/w80/vn.png" alt="VN Flag" 
                              class="w-10 h-10 object-contain rounded-md shadow-md relative z-10"
                              onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
-                        <!-- Khối chữ VN dự phòng (mặc định ẩn, chỉ hiện lên khi ảnh lỗi) -->
-                        <div class="absolute inset-0 hidden w-10 h-10 rounded-xl bg-gradient-to-tr from-red-600 via-rose-500 to-amber-400 items-center justify-center font-extrabold text-white text-xs tracking-wider shadow-lg shadow-red-500/20 border border-red-400/30 z-0">
+                        <div class="absolute inset-0 hidden w-10 h-10 rounded-xl bg-gradient-to-tr from-red-600 via-rose-500 to-amber-400 items-center justify-center font-extrabold text-white text-xs tracking-wider shadow-lg shadow-rose-500/20 border border-rose-400/30 z-0">
                             VN
                         </div>
                     </div>
                     <div>
-                        <h1 class="font-bold text-base tracking-tight text-white">LiemAI <span class="text-xs px-1.5 py-0.5 rounded bg-rose-500/20 text-rose-300 font-semibold">Lumique 3</span></h1>
-                        <p class="text-[11px] text-slate-400">Multi-Model Web Studio</p>
+                        <h1 class="font-bold text-base tracking-tight">LiemAI <span class="text-xs px-1.5 py-0.5 rounded bg-rose-500/20 text-rose-400 font-semibold">Lumique 3</span></h1>
+                        <p class="text-[11px] theme-text-sub">Multi-Model Web Studio</p>
                     </div>
                 </div>
             </div>
 
             <!-- Nút Cuộc trò chuyện mới -->
-            <button onclick="resetChat()" class="w-full py-2.5 px-3.5 rounded-xl bg-slate-800/80 hover:bg-slate-700/80 border border-slate-700 text-sm font-medium text-slate-200 flex items-center gap-2 transition">
-                <span>＋</span> Cuộc trò chuyện mới
+            <button onclick="resetChat()" class="w-full py-2 px-3.5 rounded-xl theme-card border hover:border-rose-500/60 text-sm font-medium flex items-center gap-2 transition shadow-sm">
+                <span class="text-rose-400 font-bold">＋</span> Cuộc trò chuyện mới
             </button>
 
-            <!-- Hồ sơ & Cấu hình -->
-            <div class="bg-[#0d1117] p-3 rounded-xl border border-slate-800/80 space-y-3">
+            <!-- Hồ sơ & Cấu hình (Tông đỏ dịu Rose) -->
+            <div class="theme-card p-3 rounded-xl border space-y-2.5">
                 <div>
-                    <label class="text-[11px] uppercase tracking-wider text-slate-400 font-semibold">Tên của bạn ({name})</label>
+                    <label class="text-[11px] uppercase tracking-wider theme-text-sub font-semibold">Tên của bạn ({name})</label>
                     <input id="userNameInput" type="text" value="Lieman" onchange="updateSettings()"
-                        class="mt-1 w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-sm text-white focus:outline-none focus:border-indigo-500">
+                        class="mt-1 w-full theme-input border rounded-lg px-2.5 py-1.5 text-sm focus:outline-none focus:border-rose-500">
                 </div>
                 <div>
-                    <div class="flex justify-between text-[11px] text-slate-400 font-semibold">
+                    <div class="flex justify-between text-[11px] theme-text-sub font-semibold">
                         <span>ĐỘ SÁNG TẠO (TEMP)</span>
-                        <span id="tempVal" class="text-indigo-400">0.7</span>
+                        <span id="tempVal" class="text-rose-400 font-bold">0.7</span>
                     </div>
                     <input id="tempSlider" type="range" min="0" max="1.5" step="0.1" value="0.7"
                         oninput="document.getElementById('tempVal').innerText = this.value" onchange="updateSettings()"
-                        class="w-full accent-indigo-500 mt-1 cursor-pointer">
+                        class="w-full accent-rose-500 mt-1 cursor-pointer">
                 </div>
-                <div class="flex items-center justify-between pt-1">
-                    <span class="text-xs text-slate-400">Tự động lưu JSON</span>
-                    <input id="autoSaveToggle" type="checkbox" checked onchange="updateSettings()" class="accent-indigo-500 w-4 h-4 cursor-pointer">
+                <div class="flex items-center justify-between pt-0.5">
+                    <span class="text-xs theme-text-sub">Tự động lưu JSON</span>
+                    <input id="autoSaveToggle" type="checkbox" checked onchange="updateSettings()" class="accent-rose-500 w-4 h-4 cursor-pointer">
                 </div>
             </div>
 
-            <!-- Quản lý Phiên (Sessions) -->
-            <div class="space-y-2">
-                <div class="flex items-center justify-between px-1">
-                    <span class="text-[11px] uppercase tracking-wider text-slate-400 font-semibold">Lịch sử đã lưu (.json)</span>
-                    <button onclick="saveSessionPrompt()" class="text-xs text-indigo-400 hover:text-indigo-300 font-medium">+ Lưu mới</button>
+            <!-- KỸ NĂNG & TRÍ THÔNG MINH CÁ NHÂN -->
+            <div class="theme-card p-3 rounded-xl border space-y-2">
+                <div class="flex items-center justify-between">
+                    <span class="text-[11px] uppercase tracking-wider theme-text-sub font-semibold flex items-center gap-1">
+                        🧠 Kỹ năng & Trí nhớ
+                    </span>
+                    <button onclick="openSkillsModal()" class="text-xs text-rose-400 hover:text-rose-300 font-semibold transition">
+                        + Quản lý
+                    </button>
                 </div>
-                <div id="sessionList" class="space-y-1 max-h-48 overflow-y-auto text-xs"></div>
+                <div id="sidebarSkillsList" class="space-y-1 max-h-28 overflow-y-auto text-xs"></div>
+            </div>
+
+            <!-- Quản lý Phiên (Sessions) -->
+            <div class="space-y-1.5">
+                <div class="flex items-center justify-between px-1">
+                    <span class="text-[11px] uppercase tracking-wider theme-text-sub font-semibold">Lịch sử đã lưu (.json)</span>
+                    <button onclick="saveSessionPrompt()" class="text-xs text-rose-400 hover:text-rose-300 font-medium">+ Lưu mới</button>
+                </div>
+                <div id="sessionList" class="space-y-1 max-h-32 overflow-y-auto text-xs"></div>
             </div>
         </div>
 
         <!-- Khung Quota & Nâng cấp Premium -->
-        <div class="pt-3 border-t border-slate-800 space-y-2.5">
-            <div id="quotaBox" class="bg-gradient-to-br from-slate-900 to-slate-800 p-3 rounded-xl border border-slate-700/80">
+        <div class="pt-3 border-t theme-border space-y-2">
+            <div id="quotaBox" class="theme-card p-3 rounded-xl border">
                 <div class="flex items-center justify-between mb-1.5">
-                    <span id="planBadge" class="text-xs font-semibold px-2 py-0.5 rounded bg-amber-500/20 text-amber-300">⚡ FREE TIER</span>
-                    <span id="quotaText" class="text-xs text-slate-400">0 / 5 câu</span>
+                    <span id="planBadge" class="text-xs font-semibold px-2 py-0.5 rounded bg-amber-500/20 text-amber-400">⚡ FREE TIER</span>
+                    <span id="quotaText" class="text-xs theme-text-sub">0 / 5 câu</span>
                 </div>
-                <div class="w-full bg-slate-700 h-1.5 rounded-full overflow-hidden mb-2.5">
-                    <div id="quotaBar" class="bg-amber-400 h-full transition-all duration-300" style="width: 0%"></div>
+                <div class="w-full bg-neutral-700/40 h-1.5 rounded-full overflow-hidden mb-2.5">
+                    <div id="quotaBar" class="bg-gradient-to-r from-rose-500 to-amber-400 h-full transition-all duration-300" style="width: 0%"></div>
                 </div>
                 <div id="keyInputGroup" class="flex gap-1.5">
                     <input id="premiumKeyInput" type="password" placeholder="Nhập key Premium..."
-                        class="w-full bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-1 text-xs text-white focus:outline-none focus:border-purple-500">
-                    <button onclick="unlockPremium()" class="px-2.5 py-1 bg-purple-600 hover:bg-purple-500 text-white rounded-lg text-xs font-medium shrink-0 transition">Mở</button>
+                        class="w-full theme-input border rounded-lg px-2.5 py-1 text-xs focus:outline-none focus:border-rose-500">
+                    <button onclick="unlockPremium()" class="px-2.5 py-1 bg-rose-600 hover:bg-rose-500 text-white rounded-lg text-xs font-medium shrink-0 transition shadow-sm">Mở</button>
                 </div>
             </div>
-            <button onclick="exportMarkdown()" class="w-full py-2 px-3 rounded-xl bg-slate-800/60 hover:bg-slate-800 text-xs text-slate-300 flex items-center justify-center gap-1.5 border border-slate-800 transition">
+            <button onclick="exportMarkdown()" class="w-full py-2 px-3 rounded-xl theme-card hover:border-rose-500/50 text-xs flex items-center justify-center gap-1.5 border transition">
                 📥 Xuất hội thoại ra Markdown (.md)
             </button>
         </div>
     </aside>
 
     <!-- KHU VỰC CHAT CHÍNH -->
-    <main class="flex-1 flex flex-col bg-[#0e1117] relative select-text">
-        <!-- Thanh Header chọn Model -->
-        <header class="h-14 border-b border-slate-800/80 px-6 flex items-center justify-between bg-[#0e1117]/90 backdrop-blur z-10">
+    <main class="flex-1 flex flex-col theme-main relative select-text">
+        <!-- Thanh Header: Chọn Model + Chọn Giao diện + Hoàn tác + Nút Tắt Server nhỏ góc phải -->
+        <header class="h-14 border-b theme-border px-6 flex items-center justify-between backdrop-blur z-10">
             <div class="flex items-center gap-3">
-                <span class="text-xs text-slate-400 font-medium">Mô hình:</span>
+                <span class="text-xs theme-text-sub font-medium">Mô hình:</span>
                 <select id="modelSelect" onchange="updateSettings()"
-                    class="bg-[#161b22] border border-slate-700 text-slate-100 text-sm rounded-xl px-3 py-1.5 focus:outline-none focus:border-indigo-500 font-medium cursor-pointer">
+                    class="theme-card border text-sm rounded-xl px-3 py-1.5 focus:outline-none focus:border-rose-500 font-medium cursor-pointer">
                     <option value="gemini-4-argon">✨ Gemini 4 Argon (Siêu trí tuệ - Bản 2.0)</option>
                     <option value="gemini-3.6-flash">⚡ Gemini 3.6 Flash (Tốc độ cao - Bản 1.5)</option>
                     <option value="gemini-3.5-flash" selected>🚀 Gemini 3.5 Flash (Ổn định - Bản 2.1)</option>
                     <option value="qwen/qwen3.8-27b">🔥 Qwen 3.8 27B qua Groq (Bản 1.0)</option>
                 </select>
+
+                <!-- BỘ CHỌN GIAO DIỆN (DARK / LIGHT / CONTRAST) -->
+                <div class="hidden sm:flex items-center gap-1.5 ml-2 pl-3 border-l theme-border">
+                    <span class="text-xs theme-text-sub">Giao diện:</span>
+                    <select id="themeSelect" onchange="changeTheme(this.value)"
+                        class="theme-card border text-xs rounded-lg px-2.5 py-1.5 focus:outline-none focus:border-rose-500 font-medium cursor-pointer">
+                        <option value="dark">🌙 Tối (Dark)</option>
+                        <option value="light">☀️ Sáng (Light)</option>
+                        <option value="contrast">⚡ Tương phản</option>
+                    </select>
+                </div>
             </div>
+
+            <!-- Cụm nút góc trên bên phải: Skills + Hoàn tác + Nút nhỏ Tắt Server -->
             <div class="flex items-center gap-2">
-                <button onclick="undoLastTurn()" title="Thu hồi câu hỏi gần nhất" class="text-xs px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 transition">↩ Hoàn tác (/undo)</button>
+                <button onclick="openSkillsModal()" title="Cấu hình Kỹ năng & Trí thông minh cá nhân"
+                    class="text-xs px-2.5 py-1.5 rounded-lg theme-card border hover:border-rose-500/60 transition flex items-center gap-1">
+                    🧠 <span class="hidden md:inline">Trí nhớ & Skills</span>
+                </button>
+                <button onclick="undoLastTurn()" title="Thu hồi câu hỏi gần nhất"
+                    class="text-xs px-2.5 py-1.5 rounded-lg theme-card border hover:border-rose-500/60 transition">
+                    ↩ Hoàn tác
+                </button>
+                <button onclick="shutdownServer()" title="Tắt Server & Thoát ứng dụng"
+                    class="text-xs px-2.5 py-1.5 rounded-lg bg-rose-500/15 hover:bg-rose-600 text-rose-400 hover:text-white border border-rose-500/30 font-semibold transition flex items-center gap-1">
+                    ⏻ Thoát
+                </button>
             </div>
         </header>
 
         <!-- Luồng tin nhắn -->
         <div id="chatContainer" class="flex-1 overflow-y-auto px-4 md:px-16 lg:px-32 py-6 space-y-6">
-            <!-- Màn hình chào mừng mặc định -->
+            <!-- Màn hình chào mừng mặc định (Tông Đỏ Dịu - Hồng Cam) -->
             <div id="welcomeScreen" class="h-full flex flex-col items-center justify-center text-center max-w-2xl mx-auto space-y-5 py-12">
-                <div class="w-14 h-14 rounded-2xl bg-gradient-to-tr from-blue-600 via-indigo-500 to-purple-500 flex items-center justify-center text-2xl font-bold text-white shadow-xl shadow-indigo-500/20">✨</div>
-                <h2 class="text-2xl md:text-3xl font-bold bg-gradient-to-r from-blue-400 via-indigo-300 to-purple-400 bg-clip-text text-transparent">
+                <div class="w-14 h-14 rounded-2xl bg-gradient-to-tr from-red-600 via-rose-500 to-amber-400 flex items-center justify-center text-2xl font-bold text-white shadow-xl shadow-rose-500/20">✨</div>
+                <h2 class="text-2xl md:text-3xl font-bold bg-gradient-to-r from-rose-400 via-red-400 to-amber-300 bg-clip-text text-transparent">
                     Xin chào <span id="welcomeName">Lieman</span>, hôm nay tôi có thể giúp gì cho bạn?
                 </h2>
-                <p class="text-sm text-slate-400">LiemAI Lumique 3 tích hợp truyền tải trực tiếp (SSE Streaming), đính kèm tài liệu/code và chuyển đổi nóng giữa Gemini & Groq.</p>
+                <p class="text-sm theme-text-sub">LiemAI Lumique 3 tích hợp truyền tải trực tiếp (SSE Streaming), Trí thông minh cá nhân và chuyển đổi nóng giữa Gemini & Groq.</p>
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-3 w-full text-left pt-2">
-                    <button onclick="quickPrompt('Hãy tóm tắt các điểm mạnh của kiến trúc OOP trong dự án của tôi.')" class="p-3.5 rounded-xl bg-[#161b22] hover:bg-slate-800/90 border border-slate-800 transition">
-                        <div class="text-xs font-semibold text-indigo-400 mb-1">💻 Phân tích Code & OOP</div>
-                        <div class="text-xs text-slate-300">Kiểm tra cấu trúc hướng đối tượng và đề xuất cải tiến</div>
+                    <button onclick="quickPrompt('Hãy tóm tắt các điểm mạnh của kiến trúc OOP trong dự án của tôi.')" class="p-3.5 rounded-xl theme-card hover:border-rose-500/60 border transition">
+                        <div class="text-xs font-semibold text-rose-400 mb-1">💻 Phân tích Code & OOP</div>
+                        <div class="text-xs theme-text-sub">Kiểm tra cấu trúc hướng đối tượng và đề xuất cải tiến</div>
                     </button>
-                    <button onclick="quickPrompt('Hãy giúp tôi phác thảo diễn biến tiếp theo cho tiểu thuyết.')" class="p-3.5 rounded-xl bg-[#161b22] hover:bg-slate-800/90 border border-slate-800 transition">
-                        <div class="text-xs font-semibold text-purple-400 mb-1">✒️ Sáng tác & Cốt truyện</div>
-                        <div class="text-xs text-slate-300">Phát triển kịch bản và chiều sâu tâm lý nhân vật</div>
+                    <button onclick="quickPrompt('Hãy giúp tôi phác thảo diễn biến tiếp theo cho tiểu thuyết Biên Niên Sử Inependia.')" class="p-3.5 rounded-xl theme-card hover:border-rose-500/60 border transition">
+                        <div class="text-xs font-semibold text-amber-400 mb-1">✒️ Sáng tác & Cốt truyện</div>
+                        <div class="text-xs theme-text-sub">Phát triển kịch bản và chiều sâu tâm lý nhân vật</div>
                     </button>
                 </div>
             </div>
         </div>
 
         <!-- Thanh công cụ nhập liệu dưới đáy -->
-        <div class="px-4 md:px-16 lg:px-32 pb-5 pt-2 bg-gradient-to-t from-[#0e1117] via-[#0e1117] to-transparent">
+        <div class="px-4 md:px-16 lg:px-32 pb-5 pt-2">
             <div class="max-w-4xl mx-auto">
                 <!-- Chip hiển thị file đính kèm -->
-                <div id="attachedFileChip" class="hidden mb-2 inline-flex items-center gap-2 bg-indigo-950/80 border border-indigo-500/40 text-indigo-200 px-3 py-1 rounded-xl text-xs">
+                <div id="attachedFileChip" class="hidden mb-2 inline-flex items-center gap-2 bg-rose-950/80 border border-rose-500/40 text-rose-200 px-3 py-1 rounded-xl text-xs">
                     <span>📎</span>
                     <span id="attachedFileName" class="font-medium"></span>
                     <button onclick="clearAttachment()" class="hover:text-red-400 ml-1 font-bold">✕</button>
                 </div>
 
                 <!-- Khung nhập tin nhắn -->
-                <div class="bg-[#161b22] border border-slate-700/90 focus-within:border-indigo-500 rounded-2xl p-2.5 flex items-end gap-2 shadow-xl">
-                    <!-- Nút đính kèm file thay cho lệnh /file cũ -->
+                <div class="theme-card border focus-within:border-rose-500 rounded-2xl p-2.5 flex items-end gap-2 shadow-xl">
                     <input type="file" id="fileInput" class="hidden" onchange="handleFileSelect(event)">
                     <button onclick="document.getElementById('fileInput').click()" title="Đính kèm file code/văn bản"
-                        class="p-2 rounded-xl hover:bg-slate-800 text-slate-400 hover:text-indigo-400 transition shrink-0">
+                        class="p-2 rounded-xl hover:bg-rose-500/10 theme-text-sub hover:text-rose-400 transition shrink-0">
                         📎
                     </button>
 
                     <textarea id="messageInput" rows="1" placeholder="Nhập tin nhắn cho LiemAI (Enter để gửi, Shift+Enter xuống dòng)..."
                         oninput="autoResize(this)" onkeydown="handleKeydown(event)"
-                        class="w-full bg-transparent text-sm text-slate-100 placeholder-slate-500 focus:outline-none resize-none max-h-44 py-1.5"></textarea>
+                        class="w-full bg-transparent text-sm placeholder-slate-500 focus:outline-none resize-none max-h-44 py-1.5"></textarea>
 
-                    <button id="stopBtn" onclick="stopGeneration()" class="hidden px-3 py-2 rounded-xl bg-red-600/90 hover:bg-red-500 text-white text-xs font-semibold shrink-0 transition">
+                    <button id="stopBtn" onclick="stopGeneration()" class="hidden px-3 py-2 rounded-xl bg-red-600 hover:bg-red-500 text-white text-xs font-semibold shrink-0 transition">
                         ⏹ Dừng
                     </button>
-                    <button id="sendBtn" onclick="sendMessage()" class="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold shrink-0 transition">
+                    <button id="sendBtn" onclick="sendMessage()" class="px-4 py-2 rounded-xl bg-gradient-to-r from-rose-600 to-red-500 hover:from-rose-500 hover:to-red-400 text-white text-xs font-semibold shrink-0 transition shadow-md shadow-rose-600/20">
                         Gửi ➤
                     </button>
                 </div>
             </div>
         </div>
     </main>
+
+    <!-- MODAL QUẢN LÝ KỸ NĂNG & TRÍ THÔNG MINH CÁ NHÂN -->
+    <div id="skillsModal" class="hidden fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div class="theme-card border rounded-2xl max-w-xl w-full p-5 space-y-4 shadow-2xl max-h-[90vh] flex flex-col">
+            <div class="flex items-center justify-between border-b theme-border pb-3">
+                <div class="flex items-center gap-2">
+                    <span class="text-xl">🧠</span>
+                    <div>
+                        <h3 class="font-bold text-base">Kỹ năng & Trí thông minh cá nhân</h3>
+                        <p class="text-xs theme-text-sub">Tùy chỉnh bộ nhớ dài hạn và các kỹ năng chuyên môn cho LiemAI</p>
+                    </div>
+                </div>
+                <button onclick="closeSkillsModal()" class="text-sm px-2.5 py-1 rounded-lg hover:bg-rose-500/20 hover:text-rose-400 transition">✕</button>
+            </div>
+
+            <div class="space-y-4 overflow-y-auto pr-1 flex-1">
+                <!-- 1. Trí nhớ cá nhân -->
+                <div>
+                    <label class="text-xs font-semibold text-rose-400 uppercase tracking-wider block mb-1">
+                        1. Trí thông minh cá nhân (Hồ sơ & Ngữ cảnh mặc định)
+                    </label>
+                    <textarea id="personalMemoryInput" rows="3" placeholder="Ví dụ: Tôi là sinh viên IT2 Bách Khoa, thích giải thích code bằng Java/Python ngắn gọn..."
+                        class="w-full theme-input border rounded-xl p-3 text-xs focus:outline-none focus:border-rose-500"></textarea>
+                    <div class="flex justify-end mt-1.5">
+                        <button onclick="savePersonalMemory()" class="px-3 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-500 text-white text-xs font-medium transition">
+                            💾 Lưu Trí nhớ cá nhân
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 2. Danh sách Kỹ năng (Skills) -->
+                <div class="space-y-2">
+                    <label class="text-xs font-semibold text-rose-400 uppercase tracking-wider block">
+                        2. Danh sách Kỹ năng (Bật/Tắt linh hoạt)
+                    </label>
+                    <div id="modalSkillsList" class="space-y-2"></div>
+                </div>
+
+                <!-- 3. Thêm Kỹ năng mới -->
+                <div class="p-3 rounded-xl border theme-border space-y-2">
+                    <div class="text-xs font-semibold">＋ Thêm Kỹ năng (Skill) mới</div>
+                    <input id="newSkillName" type="text" placeholder="Tên kỹ năng (VD: 🔥 Chuyên gia giải thuật C++)"
+                        class="w-full theme-input border rounded-lg px-2.5 py-1.5 text-xs focus:outline-none focus:border-rose-500">
+                    <textarea id="newSkillInstruction" rows="2" placeholder="Chỉ dẫn cho AI khi kỹ năng này bật (VD: Luôn phân tích độ phức tạp Time/Space Big-O...)"
+                        class="w-full theme-input border rounded-lg px-2.5 py-1.5 text-xs focus:outline-none focus:border-rose-500"></textarea>
+                    <button onclick="addNewSkill()" class="w-full py-1.5 rounded-lg bg-rose-500/20 hover:bg-rose-600 text-rose-300 hover:text-white border border-rose-500/30 text-xs font-semibold transition">
+                        + Thêm vào bộ Kỹ năng
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
 
     <script>
         let attachedFile = { name: "", content: "" };
@@ -330,6 +539,19 @@ HTML_TEMPLATE = r"""
             },
             breaks: true
         });
+
+        // QUẢN LÝ CHẾ ĐỘ GIAO DIỆN (DARK / LIGHT / CONTRAST)
+        function changeTheme(themeName) {
+            document.documentElement.setAttribute('data-theme', themeName);
+            localStorage.setItem('liemai_theme', themeName);
+            const sel = document.getElementById('themeSelect');
+            if (sel && sel.value !== themeName) sel.value = themeName;
+        }
+
+        (function initSavedTheme() {
+            const saved = localStorage.getItem('liemai_theme') || 'dark';
+            changeTheme(saved);
+        })();
 
         function autoResize(el) {
             el.style.height = 'auto';
@@ -375,13 +597,13 @@ HTML_TEMPLATE = r"""
             if (role === 'user') {
                 wrapper.className = "flex justify-end";
                 wrapper.innerHTML = `
-                    <div class="max-w-2xl bg-indigo-600/20 border border-indigo-500/30 text-slate-100 rounded-2xl rounded-tr-sm px-4 py-3 text-sm whitespace-pre-wrap">${escapeHtml(htmlContent)}</div>
+                    <div class="max-w-2xl theme-bubble-user border rounded-2xl rounded-tr-sm px-4 py-3 text-sm whitespace-pre-wrap">${escapeHtml(htmlContent)}</div>
                 `;
             } else {
                 wrapper.className = "flex gap-3 items-start max-w-4xl";
                 wrapper.innerHTML = `
-                    <div class="w-8 h-8 rounded-xl bg-gradient-to-tr from-black-600 to-red-500 flex items-center justify-center text-xs font-bold text-white shrink-0 mt-0.5">AI</div>
-                    <div class="flex-1 bg-[#161b22] border border-slate-800 rounded-2xl rounded-tl-sm px-5 py-3.5 text-sm prose prose-invert max-w-none message-content">${htmlContent}</div>
+                    <div class="w-8 h-8 rounded-xl bg-gradient-to-tr from-red-600 via-rose-500 to-amber-400 flex items-center justify-center text-xs font-bold text-white shrink-0 mt-0.5 shadow-md shadow-rose-500/20">AI</div>
+                    <div class="flex-1 theme-bubble-ai border rounded-2xl rounded-tl-sm px-5 py-3.5 text-sm prose max-w-none message-content">${htmlContent}</div>
                 `;
             }
             container.appendChild(wrapper);
@@ -411,7 +633,7 @@ HTML_TEMPLATE = r"""
             input.style.height = 'auto';
             clearAttachment();
 
-            const aiBubble = createMessageBubble('assistant', '<span class=" text-slate-400 animate-pulse">Đang suy nghĩ...</span>');
+            const aiBubble = createMessageBubble('assistant', '<span class="theme-text-sub animate-pulse">Đang suy nghĩ...</span>');
             document.getElementById('sendBtn').classList.add('hidden');
             document.getElementById('stopBtn').classList.remove('hidden');
 
@@ -448,7 +670,7 @@ HTML_TEMPLATE = r"""
                         if (line.startsWith("data: ")) {
                             const data = JSON.parse(line.slice(6));
                             if (data.error) {
-                                aiBubble.innerHTML = `<span class="text-red-400 font-semibold">✖ ${escapeHtml(data.error)}</span>`;
+                                aiBubble.innerHTML = `<span class="text-rose-400 font-semibold">✖ ${escapeHtml(data.error)}</span>`;
                             } else if (data.text) {
                                 fullMarkdown += data.text;
                                 aiBubble.innerHTML = marked.parse(fullMarkdown);
@@ -462,7 +684,7 @@ HTML_TEMPLATE = r"""
                     fullMarkdown += "\n\n*(Đã dừng sinh văn bản)*";
                     aiBubble.innerHTML = marked.parse(fullMarkdown);
                 } else {
-                    aiBubble.innerHTML = `<span class="text-red-400">✖ Lỗi kết nối: ${err.message}</span>`;
+                    aiBubble.innerHTML = `<span class="text-rose-400">✖ Lỗi kết nối: ${err.message}</span>`;
                 }
             } finally {
                 document.getElementById('sendBtn').classList.remove('hidden');
@@ -506,6 +728,77 @@ HTML_TEMPLATE = r"""
             }
         }
 
+        // QUẢN LÝ SKILLS & PERSONAL INTELLIGENCE
+        function openSkillsModal() {
+            document.getElementById('skillsModal').classList.remove('hidden');
+            refreshStatus();
+        }
+
+        function closeSkillsModal() {
+            document.getElementById('skillsModal').classList.add('hidden');
+        }
+
+        async function savePersonalMemory() {
+            const memory = document.getElementById('personalMemoryInput').value;
+            await fetch('/api/intelligence/memory', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ personal_memory: memory })
+            });
+            refreshStatus();
+            alert("✔ Đã cập nhật Trí thông minh cá nhân!");
+        }
+
+        async function toggleSkill(skillId) {
+            await fetch('/api/intelligence/toggle_skill', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id: skillId })
+            });
+            refreshStatus();
+        }
+
+        async function deleteSkill(skillId) {
+            await fetch('/api/intelligence/delete_skill', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id: skillId })
+            });
+            refreshStatus();
+        }
+
+        async function addNewSkill() {
+            const name = document.getElementById('newSkillName').value.trim();
+            const instruction = document.getElementById('newSkillInstruction').value.trim();
+            if (!name || !instruction) {
+                alert("Vui lòng nhập đầy đủ Tên kỹ năng và Chỉ dẫn!");
+                return;
+            }
+            await fetch('/api/intelligence/add_skill', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name, instruction })
+            });
+            document.getElementById('newSkillName').value = "";
+            document.getElementById('newSkillInstruction').value = "";
+            refreshStatus();
+        }
+
+        // NÚT TẮT SERVER TRỰC TIẾP GÓC TRÊN PHẢI
+        async function shutdownServer() {
+            if (!confirm("Bạn muốn tắt Server LiemAI Lumique 3 và thoát ứng dụng?")) return;
+            try {
+                await fetch('/api/shutdown', { method: 'POST' });
+            } catch (e) {}
+            document.body.innerHTML = `
+                <div class="h-screen w-screen flex flex-col items-center justify-center theme-main text-center p-6 space-y-3">
+                    <div class="w-14 h-14 rounded-2xl bg-gradient-to-tr from-red-600 via-rose-500 to-amber-400 flex items-center justify-center text-2xl text-white shadow-xl">👋</div>
+                    <h2 class="text-xl font-bold">Đã tắt Server LiemAI Lumique 3!</h2>
+                    <p class="text-sm theme-text-sub">Tiến trình Python đã kết thúc an toàn. Bạn có thể đóng tab trình duyệt này.</p>
+                </div>
+            `;
+        }
+
         async function resetChat() {
             await fetch('/api/reset', { method: 'POST' });
             location.reload();
@@ -542,7 +835,7 @@ HTML_TEMPLATE = r"""
             const container = document.getElementById('chatContainer');
             container.innerHTML = "";
             for (const m of data.history) {
-                const bubble = createMessageBubble(m.role, m.role === 'user' ? m.content : marked.parse(m.content));
+                createMessageBubble(m.role, m.role === 'user' ? m.content : marked.parse(m.content));
             }
             refreshStatus();
         }
@@ -556,11 +849,11 @@ HTML_TEMPLATE = r"""
             const data = await res.json();
 
             if (data.is_premium) {
-                document.getElementById('planBadge').className = "text-xs font-semibold px-2 py-0.5 rounded bg-purple-500/20 text-purple-300";
+                document.getElementById('planBadge').className = "text-xs font-semibold px-2 py-0.5 rounded bg-rose-500/20 text-rose-400";
                 document.getElementById('planBadge').innerText = "👑 PREMIUM";
                 document.getElementById('quotaText').innerText = "Không giới hạn";
                 document.getElementById('quotaBar').style.width = "100%";
-                document.getElementById('quotaBar').className = "bg-gradient-to-r from-indigo-500 to-purple-500 h-full";
+                document.getElementById('quotaBar').className = "bg-gradient-to-r from-red-600 via-rose-500 to-amber-400 h-full";
                 document.getElementById('keyInputGroup').classList.add('hidden');
             } else {
                 const pct = Math.min((data.num_of_questions / data.question_limit) * 100, 100);
@@ -568,12 +861,48 @@ HTML_TEMPLATE = r"""
                 document.getElementById('quotaBar').style.width = `${pct}%`;
             }
 
+            // Render danh sách file JSON
             const sList = document.getElementById('sessionList');
             sList.innerHTML = data.sessions.map(f => `
-                <button onclick="loadSession('${f}')" class="w-full text-left px-2.5 py-1.5 rounded-lg hover:bg-slate-800 text-slate-300 truncate flex items-center gap-2 transition">
-                    <span>💬</span> <span class="truncate">${f}</span>
+                <button onclick="loadSession('${f}')" class="w-full text-left px-2.5 py-1.5 rounded-lg hover:bg-rose-500/10 truncate flex items-center gap-2 transition">
+                    <span class="text-rose-400">💬</span> <span class="truncate">${f}</span>
                 </button>
             `).join('');
+
+            // Render danh sách Skills ở Sidebar và trong Modal
+            const memInput = document.getElementById('personalMemoryInput');
+            if (memInput && document.activeElement !== memInput) {
+                memInput.value = data.personal_memory || "";
+            }
+
+            const sideSkills = document.getElementById('sidebarSkillsList');
+            sideSkills.innerHTML = data.skills.map(s => `
+                <div onclick="toggleSkill('${s.id}')" class="flex items-center justify-between px-2 py-1 rounded-lg cursor-pointer hover:bg-rose-500/10 transition">
+                    <span class="truncate ${s.enabled ? 'font-medium text-rose-400' : 'theme-text-sub line-through'}">${escapeHtml(s.name)}</span>
+                    <span class="text-[10px] px-1.5 py-0.5 rounded ${s.enabled ? 'bg-rose-500/20 text-rose-300' : 'bg-neutral-700/30 theme-text-sub'}">${s.enabled ? 'ON' : 'OFF'}</span>
+                </div>
+            `).join('');
+
+            const modalSkills = document.getElementById('modalSkillsList');
+            if (modalSkills) {
+                modalSkills.innerHTML = data.skills.map(s => `
+                    <div class="p-2.5 rounded-xl border theme-border flex items-start justify-between gap-2">
+                        <div class="flex-1">
+                            <div class="text-xs font-semibold flex items-center gap-2">
+                                <span>${escapeHtml(s.name)}</span>
+                                <span class="text-[10px] px-1.5 py-0.5 rounded ${s.enabled ? 'bg-rose-500/20 text-rose-400' : 'bg-neutral-700/30 theme-text-sub'}">${s.enabled ? 'Đang bật' : 'Đang tắt'}</span>
+                            </div>
+                            <p class="text-[11px] theme-text-sub mt-1">${escapeHtml(s.instruction)}</p>
+                        </div>
+                        <div class="flex items-center gap-1 shrink-0">
+                            <button onclick="toggleSkill('${s.id}')" class="px-2 py-1 rounded-lg text-xs border theme-border hover:border-rose-500 transition">
+                                ${s.enabled ? 'Tắt' : 'Bật'}
+                            </button>
+                            <button onclick="deleteSkill('${s.id}')" class="px-2 py-1 rounded-lg text-xs text-rose-400 hover:bg-rose-500/20 transition">🗑</button>
+                        </div>
+                    </div>
+                `).join('');
+            }
         }
 
         window.onload = refreshStatus;
@@ -593,7 +922,10 @@ def index():
 
 @app.route("/api/status")
 def api_status():
-    json_files = sorted(glob.glob("*.json"))
+    json_files = [
+        f for f in sorted(glob.glob("*.json"))
+        if f != LiemConfig.INTELLIGENCE_FILE
+    ]
     return jsonify({
         "user_name": state.user_name,
         "model_id": state.model_id,
@@ -602,7 +934,9 @@ def api_status():
         "num_of_questions": state.num_of_questions,
         "question_limit": LiemConfig.QUESTION_LIMIT,
         "sessions": json_files,
-        "history": state.history
+        "history": state.history,
+        "personal_memory": state.personal_memory,
+        "skills": state.skills
     })
 
 
@@ -613,6 +947,57 @@ def api_settings():
     state.model_id = data.get("model_id", state.model_id)
     state.temperature = float(data.get("temperature", state.temperature))
     state.is_persistent = bool(data.get("is_persistent", state.is_persistent))
+    return jsonify({"success": True})
+
+
+@app.route("/api/intelligence/memory", methods=["POST"])
+def api_save_memory():
+    data = request.json or {}
+    state.personal_memory = data.get("personal_memory", "")
+    state.save_intelligence()
+    return jsonify({"success": True})
+
+
+@app.route("/api/intelligence/add_skill", methods=["POST"])
+def api_add_skill():
+    data = request.json or {}
+    name = data.get("name", "").strip()
+    instruction = data.get("instruction", "").strip()
+    if name and instruction:
+        new_id = f"skill_{int(datetime.now().timestamp() * 1000)}"
+        state.skills.append({
+            "id": new_id,
+            "name": name,
+            "instruction": instruction,
+            "enabled": True
+        })
+        state.save_intelligence()
+    return jsonify({"success": True})
+
+
+@app.route("/api/intelligence/toggle_skill", methods=["POST"])
+def api_toggle_skill():
+    skill_id = (request.json or {}).get("id", "")
+    for s in state.skills:
+        if s["id"] == skill_id:
+            s["enabled"] = not s.get("enabled", False)
+            break
+    state.save_intelligence()
+    return jsonify({"success": True})
+
+
+@app.route("/api/intelligence/delete_skill", methods=["POST"])
+def api_delete_skill():
+    skill_id = (request.json or {}).get("id", "")
+    state.skills = [s for s in state.skills if s["id"] != skill_id]
+    state.save_intelligence()
+    return jsonify({"success": True})
+
+
+@app.route("/api/shutdown", methods=["POST"])
+def api_shutdown():
+    # Tự động đóng tiến trình Python sau 0.4 giây để kịp trả response về trình duyệt
+    threading.Timer(0.4, lambda: os._exit(0)).start()
     return jsonify({"success": True})
 
 
@@ -658,7 +1043,7 @@ def api_load_session():
 @app.route("/api/export_md")
 def api_export_md():
     lines = [
-        f"# Lịch sử trò chuyện LiemAI - {state.user_name}",
+        f"# Lịch sử trò chuyện LiemAI Lumique 3 - {state.user_name}",
         f"*Xuất lúc: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}*\n\n---\n"
     ]
     for m in state.history:
