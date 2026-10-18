@@ -18,9 +18,9 @@ app = Flask(__name__)
 # 1. CẤU HÌNH HỆ THỐNG & QUẢN LÝ TRẠNG THÁI (BACKEND OOP)
 # =====================================================================
 class LiemConfig:
-    MAX_CONTEXT_TURNS = 12  # Giữ 12 message gần nhất như bản 2.1
-    QUESTION_LIMIT = 5      # Giới hạn bản Free
-    SECRET_KEY = "key"      # Mã kích hoạt Premium
+    MAX_CONTEXT_TURNS = 12  # Giữ 12 message gần nhất như bản 2.1[cite: 13, 23]
+    QUESTION_LIMIT = 5      # Giới hạn bản Free[cite: 13, 23]
+    SECRET_KEY = "key"      # Mã kích hoạt Premium[cite: 13, 23]
     PROMPT_FILE = "prompt_v30.txt"
     INTELLIGENCE_FILE = "liemai_intelligence.json"
 
@@ -32,7 +32,7 @@ class LiemConfig:
     GROQ_API_KEY = os.getenv("API_KEY_V10") or os.getenv("GROQ_API_KEY")
 
     MODELS = {
-        "gemini-4-argon": {"name": "Gemini 4 Argon (Pro - v2.0)", "provider": "gemini"},
+        "gemini-3.7-flash": {"name": "✨ Gemini 3.7 Flash (Thế hệ mới)", "provider": "gemini"},
         "gemini-3.6-flash": {"name": "Gemini 3.6 Flash (Fast - v1.5)", "provider": "gemini"},
         "gemini-3.5-flash": {"name": "Gemini 3.5 Flash (Stable - v2.1)", "provider": "gemini"},
         "qwen/qwen3.8-27b": {"name": "Qwen 3.8 27B (Groq - v1.0)", "provider": "groq"},
@@ -44,6 +44,7 @@ class ChatState:
         self.user_name: str = "Lieman"
         self.model_id: str = "gemini-3.5-flash"
         self.temperature: float = 0.7
+        self.language: str = "vi"  # "vi" hoặc "en"
         self.is_premium: bool = False
         self.num_of_questions: int = 0
         self.is_persistent: bool = True
@@ -52,8 +53,7 @@ class ChatState:
 
         # Trí thông minh cá nhân & Kỹ năng (Skills)
         self.personal_memory: str = (
-            "Người dùng là sinh viên tại ĐH Bách Khoa Hà Nội, "
-            "đam mê lập trình và toán học."
+            "Người dùng là sinh viên tại ĐH Bách Khoa Hà Nội, đam mê lập trình và toán học."
         )
         self.skills: List[Dict] = [
             {
@@ -111,7 +111,6 @@ class ChatState:
                 except Exception:
                     pass
 
-        # Ghép thêm Trí thông minh cá nhân & các Kỹ năng đang bật
         extra_blocks = []
         if self.personal_memory.strip():
             extra_blocks.append(f"[PERSONAL INTELLIGENCE & USER MEMORY]\n{self.personal_memory.strip()}")
@@ -120,6 +119,16 @@ class ChatState:
         if active_skills:
             skill_lines = "\n".join([f"- {s['name']}: {s['instruction']}" for s in active_skills])
             extra_blocks.append(f"[ACTIVE CUSTOM SKILLS]\n{skill_lines}")
+
+        # Chỉ dẫn ngôn ngữ rõ ràng theo lựa chọn giao diện
+        if self.language == "en":
+            extra_blocks.append(
+                "[LANGUAGE DIRECTIVE]\nThe user has selected English as their UI language. Please respond fluently in English unless explicitly asked otherwise."
+            )
+        else:
+            extra_blocks.append(
+                "[LANGUAGE DIRECTIVE]\nNgười dùng đã chọn Tiếng Việt làm ngôn ngữ giao diện. Hãy ưu tiên phản hồi bằng Tiếng Việt tự nhiên, chuẩn mực."
+            )
 
         if extra_blocks:
             return base_prompt + "\n\n" + "\n\n".join(extra_blocks)
@@ -194,7 +203,7 @@ state = ChatState()
 
 
 # =====================================================================
-# 2. GIAO DIỆN WEB (TÔNG ĐỎ DỊU + 3 CHẾ ĐỘ THEME + SKILLS & MEMORY)
+# 2. GIAO DIỆN WEB (TÔNG ĐỎ DỊU + 3 THEMES + SONG NGỮ VI/EN + SKILLS)
 # =====================================================================
 HTML_TEMPLATE = r"""
 <!DOCTYPE html>
@@ -203,6 +212,9 @@ HTML_TEMPLATE = r"""
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>LiemAI Lumique 3</title>
+
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 256 256'%3E%3Cdefs%3E%3CradialGradient id='bgGrad' cx='50%25' cy='45%25' r='60%25'%3E%3Cstop offset='0%25' stop-color='%23b91c1c'/%3E%3Cstop offset='65%25' stop-color='%2388081f'/%3E%3Cstop offset='100%25' stop-color='%2345030e'/%3E%3C/radialGradient%3E%3ClinearGradient id='goldLight' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0%25' stop-color='%23fff1b8'/%3E%3Cstop offset='100%25' stop-color='%23d4a034'/%3E%3C/linearGradient%3E%3ClinearGradient id='goldDark' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0%25' stop-color='%23ba8623'/%3E%3Cstop offset='100%25' stop-color='%23684507'/%3E%3C/linearGradient%3E%3ClinearGradient id='obsLight' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0%25' stop-color='%23383a42'/%3E%3Cstop offset='100%25' stop-color='%231f2127'/%3E%3C/linearGradient%3E%3ClinearGradient id='obsDark' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0%25' stop-color='%23181a1f'/%3E%3Cstop offset='100%25' stop-color='%230b0c0e'/%3E%3C/linearGradient%3E%3Cfilter id='starShadow' x='-20%25' y='-20%25' width='140%25' height='140%25'%3E%3CfeDropShadow dx='0' dy='6' stdDeviation='7' flood-color='%23000' flood-opacity='0.6'/%3E%3C/filter%3E%3C/defs%3E%3Crect width='256' height='256' rx='58' fill='url(%23bgGrad)' stroke='%23f43f5e' stroke-opacity='0.25' stroke-width='2'/%3E%3Cg filter='url(%23starShadow)' transform='translate(128,128)' stroke='%23fef08a' stroke-width='1.2' stroke-linejoin='round'%3E%3C!-- Outer 10-point Obsidian Star --%3E%3Cg id='outerStar'%3E%3Cpath d='M0,-112 L0,0 L20.5,-39.5 Z' fill='url(%23obsLight)'/%3E%3Cpath d='M0,-112 L0,0 L-20.5,-39.5 Z' fill='url(%23obsDark)'/%3E%3Cpath d='M65.8,-90.6 L0,0 L43.9,-5.7 Z' fill='url(%23obsLight)'/%3E%3Cpath d='M65.8,-90.6 L0,0 L20.5,-39.5 Z' fill='url(%23obsDark)'/%3E%3Cpath d='M106.5,-34.6 L0,0 L43.9,-5.7 Z' fill='url(%23obsLight)'/%3E%3Cpath d='M106.5,-34.6 L0,0 L35.6,26.7 Z' fill='url(%23obsDark)'/%3E%3Cpath d='M106.5,34.6 L0,0 L35.6,26.7 Z' fill='url(%23obsLight)'/%3E%3Cpath d='M106.5,34.6 L0,0 L0,44.3 Z' fill='url(%23obsDark)'/%3E%3Cpath d='M65.8,90.6 L0,0 L0,44.3 Z' fill='url(%23obsLight)'/%3E%3Cpath d='M65.8,90.6 L0,0 L-35.6,26.7 Z' fill='url(%23obsDark)'/%3E%3Cpath d='M0,112 L0,0 L-35.6,26.7 Z' fill='url(%23obsLight)'/%3E%3Cpath d='M0,112 L0,0 L-43.9,-5.7 Z' fill='url(%23obsDark)'/%3E%3Cpath d='M-65.8,90.6 L0,0 L-43.9,-5.7 Z' fill='url(%23obsLight)'/%3E%3Cpath d='M-65.8,90.6 L0,0 L-20.5,-39.5 Z' fill='url(%23obsDark)'/%3E%3Cpath d='M-106.5,34.6 L0,0 L-20.5,-39.5 Z' fill='url(%23obsLight)'/%3E%3Cpath d='M-106.5,34.6 L0,0 L-43.9,-5.7 Z' fill='url(%23obsDark)'/%3E%3Cpath d='M-106.5,-34.6 L0,0 L-43.9,-5.7 Z' fill='url(%23obsLight)'/%3E%3Cpath d='M-106.5,-34.6 L0,0 L-20.5,-39.5 Z' fill='url(%23obsDark)'/%3E%3Cpath d='M-65.8,-90.6 L0,0 L-20.5,-39.5 Z' fill='url(%23obsLight)'/%3E%3Cpath d='M-65.8,-90.6 L0,0 L0,-44.3 Z' fill='url(%23obsDark)'/%3E%3C/g%3E%3C!-- Inner 10-point Gold Star --%3E%3Cg id='innerStar' stroke='%23fff' stroke-opacity='0.4' stroke-width='0.8'%3E%3Cpath d='M0,-54 L0,0 L10.5,-18.2 Z' fill='url(%23goldLight)'/%3E%3Cpath d='M0,-54 L0,0 L-10.5,-18.2 Z' fill='url(%23goldDark)'/%3E%3Cpath d='M31.7,-43.7 L0,0 L20.9,-2.7 Z' fill='url(%23goldLight)'/%3E%3Cpath d='M31.7,-43.7 L0,0 L10.5,-18.2 Z' fill='url(%23goldDark)'/%3E%3Cpath d='M51.4,-16.7 L0,0 L20.9,-2.7 Z' fill='url(%23goldLight)'/%3E%3Cpath d='M51.4,-16.7 L0,0 L17.0,12.7 Z' fill='url(%23goldDark)'/%3E%3Cpath d='M51.4,16.7 L0,0 L17.0,12.7 Z' fill='url(%23goldLight)'/%3E%3Cpath d='M51.4,16.7 L0,0 L0,21.2 Z' fill='url(%23goldDark)'/%3E%3Cpath d='M31.7,43.7 L0,0 L0,21.2 Z' fill='url(%23goldLight)'/%3E%3Cpath d='M31.7,43.7 L0,0 L-17.0,12.7 Z' fill='url(%23goldDark)'/%3E%3Cpath d='M0,54 L0,0 L-17.0,12.7 Z' fill='url(%23goldLight)'/%3E%3Cpath d='M0,54 L0,0 L-20.9,-2.7 Z' fill='url(%23goldDark)'/%3E%3Cpath d='M-31.7,43.7 L0,0 L-20.9,-2.7 Z' fill='url(%23goldLight)'/%3E%3Cpath d='M-31.7,43.7 L0,0 L-10.5,-18.2 Z' fill='url(%23goldDark)'/%3E%3Cpath d='M-51.4,16.7 L0,0 L-10.5,-18.2 Z' fill='url(%23goldLight)'/%3E%3Cpath d='M-51.4,16.7 L0,0 L-20.9,-2.7 Z' fill='url(%23goldDark)'/%3E%3Cpath d='M-51.4,-16.7 L0,0 L-20.9,-2.7 Z' fill='url(%23goldLight)'/%3E%3Cpath d='M-51.4,-16.7 L0,0 L-10.5,-18.2 Z' fill='url(%23goldDark)'/%3E%3Cpath d='M-31.7,-43.7 L0,0 L-10.5,-18.2 Z' fill='url(%23goldLight)'/%3E%3Cpath d='M-31.7,-43.7 L0,0 L0,-21.2 Z' fill='url(%23goldDark)'/%3E%3C/g%3E%3Ccircle cx='0' cy='0' r='3.5' fill='%23fff6d1' stroke='%23b45309' stroke-width='0.8'/%3E%3C/g%3E%3C/svg%3E">    
+    
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/tokyo-night-dark.min.css">
@@ -210,7 +222,6 @@ HTML_TEMPLATE = r"""
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 
-        /* BIẾN MÀU CHO 3 CHẾ ĐỘ GIAO DIỆN (DARK / LIGHT / HIGH CONTRAST) */
         :root, html[data-theme="dark"] {
             --bg-main: #0f0f12;
             --bg-sidebar: #16151a;
@@ -306,19 +317,19 @@ HTML_TEMPLATE = r"""
 
             <!-- Nút Cuộc trò chuyện mới -->
             <button onclick="resetChat()" class="w-full py-2 px-3.5 rounded-xl theme-card border hover:border-rose-500/60 text-sm font-medium flex items-center gap-2 transition shadow-sm">
-                <span class="text-rose-400 font-bold">＋</span> Cuộc trò chuyện mới
+                <span class="text-rose-400 font-bold">＋</span> <span data-i18n="newChat">Cuộc trò chuyện mới</span>
             </button>
 
-            <!-- Hồ sơ & Cấu hình (Tông đỏ dịu Rose) -->
+            <!-- Hồ sơ & Cấu hình -->
             <div class="theme-card p-3 rounded-xl border space-y-2.5">
                 <div>
-                    <label class="text-[11px] uppercase tracking-wider theme-text-sub font-semibold">Tên của bạn ({name})</label>
+                    <label class="text-[11px] uppercase tracking-wider theme-text-sub font-semibold" data-i18n="userNameLabel">Tên của bạn ({name})</label>
                     <input id="userNameInput" type="text" value="Lieman" onchange="updateSettings()"
                         class="mt-1 w-full theme-input border rounded-lg px-2.5 py-1.5 text-sm focus:outline-none focus:border-rose-500">
                 </div>
                 <div>
                     <div class="flex justify-between text-[11px] theme-text-sub font-semibold">
-                        <span>ĐỘ SÁNG TẠO (TEMP)</span>
+                        <span data-i18n="tempLabel">ĐỘ SÁNG TẠO (TEMP)</span>
                         <span id="tempVal" class="text-rose-400 font-bold">0.7</span>
                     </div>
                     <input id="tempSlider" type="range" min="0" max="1.5" step="0.1" value="0.7"
@@ -326,7 +337,7 @@ HTML_TEMPLATE = r"""
                         class="w-full accent-rose-500 mt-1 cursor-pointer">
                 </div>
                 <div class="flex items-center justify-between pt-0.5">
-                    <span class="text-xs theme-text-sub">Tự động lưu JSON</span>
+                    <span class="text-xs theme-text-sub" data-i18n="autoSaveLabel">Tự động lưu JSON</span>
                     <input id="autoSaveToggle" type="checkbox" checked onchange="updateSettings()" class="accent-rose-500 w-4 h-4 cursor-pointer">
                 </div>
             </div>
@@ -334,10 +345,10 @@ HTML_TEMPLATE = r"""
             <!-- KỸ NĂNG & TRÍ THÔNG MINH CÁ NHÂN -->
             <div class="theme-card p-3 rounded-xl border space-y-2">
                 <div class="flex items-center justify-between">
-                    <span class="text-[11px] uppercase tracking-wider theme-text-sub font-semibold flex items-center gap-1">
+                    <span class="text-[11px] uppercase tracking-wider theme-text-sub font-semibold flex items-center gap-1" data-i18n="skillsHeader">
                         🧠 Kỹ năng & Trí nhớ
                     </span>
-                    <button onclick="openSkillsModal()" class="text-xs text-rose-400 hover:text-rose-300 font-semibold transition">
+                    <button onclick="openSkillsModal()" class="text-xs text-rose-400 hover:text-rose-300 font-semibold transition" data-i18n="manageBtn">
                         + Quản lý
                     </button>
                 </div>
@@ -347,8 +358,8 @@ HTML_TEMPLATE = r"""
             <!-- Quản lý Phiên (Sessions) -->
             <div class="space-y-1.5">
                 <div class="flex items-center justify-between px-1">
-                    <span class="text-[11px] uppercase tracking-wider theme-text-sub font-semibold">Lịch sử đã lưu (.json)</span>
-                    <button onclick="saveSessionPrompt()" class="text-xs text-rose-400 hover:text-rose-300 font-medium">+ Lưu mới</button>
+                    <span class="text-[11px] uppercase tracking-wider theme-text-sub font-semibold" data-i18n="savedSessions">Lịch sử đã lưu (.json)</span>
+                    <button onclick="saveSessionPrompt()" class="text-xs text-rose-400 hover:text-rose-300 font-medium" data-i18n="newSaveBtn">+ Lưu mới</button>
                 </div>
                 <div id="sessionList" class="space-y-1 max-h-32 overflow-y-auto text-xs"></div>
             </div>
@@ -367,10 +378,10 @@ HTML_TEMPLATE = r"""
                 <div id="keyInputGroup" class="flex gap-1.5">
                     <input id="premiumKeyInput" type="password" placeholder="Nhập key Premium..."
                         class="w-full theme-input border rounded-lg px-2.5 py-1 text-xs focus:outline-none focus:border-rose-500">
-                    <button onclick="unlockPremium()" class="px-2.5 py-1 bg-rose-600 hover:bg-rose-500 text-white rounded-lg text-xs font-medium shrink-0 transition shadow-sm">Mở</button>
+                    <button onclick="unlockPremium()" class="px-2.5 py-1 bg-rose-600 hover:bg-rose-500 text-white rounded-lg text-xs font-medium shrink-0 transition shadow-sm" data-i18n="unlockBtn">Mở</button>
                 </div>
             </div>
-            <button onclick="exportMarkdown()" class="w-full py-2 px-3 rounded-xl theme-card hover:border-rose-500/50 text-xs flex items-center justify-center gap-1.5 border transition">
+            <button onclick="exportMarkdown()" class="w-full py-2 px-3 rounded-xl theme-card hover:border-rose-500/50 text-xs flex items-center justify-center gap-1.5 border transition" data-i18n="exportMdBtn">
                 📥 Xuất hội thoại ra Markdown (.md)
             </button>
         </div>
@@ -378,42 +389,52 @@ HTML_TEMPLATE = r"""
 
     <!-- KHU VỰC CHAT CHÍNH -->
     <main class="flex-1 flex flex-col theme-main relative select-text">
-        <!-- Thanh Header: Chọn Model + Chọn Giao diện + Hoàn tác + Nút Tắt Server nhỏ góc phải -->
+        <!-- Thanh Header: Chọn Model + Chọn Giao diện + Chọn Ngôn ngữ + Nút Thoát -->
         <header class="h-14 border-b theme-border px-6 flex items-center justify-between backdrop-blur z-10">
-            <div class="flex items-center gap-3">
-                <span class="text-xs theme-text-sub font-medium">Mô hình:</span>
+            <div class="flex items-center gap-2 sm:gap-3 overflow-x-auto">
+                <span class="text-xs theme-text-sub font-medium hidden md:inline" data-i18n="modelLabel">Mô hình:</span>
                 <select id="modelSelect" onchange="updateSettings()"
-                    class="theme-card border text-sm rounded-xl px-3 py-1.5 focus:outline-none focus:border-rose-500 font-medium cursor-pointer">
-                    <option value="gemini-4-argon">✨ Gemini 4 Argon (Siêu trí tuệ - Bản 2.0)</option>
-                    <option value="gemini-3.6-flash">⚡ Gemini 3.6 Flash (Tốc độ cao - Bản 1.5)</option>
-                    <option value="gemini-3.5-flash" selected>🚀 Gemini 3.5 Flash (Ổn định - Bản 2.1)</option>
+                    class="theme-card border text-xs sm:text-sm rounded-xl px-2.5 sm:px-3 py-1.5 focus:outline-none focus:border-rose-500 font-medium cursor-pointer">
+                    <option value="gemini-3.7-flash">✨ Gemini 3.7 Flash (Thế hệ mới)</option>
+                    <option value="gemini-3.6-flash">⚡ Gemini 3.6 Flash (Fast - v1.5)</option>
+                    <option value="gemini-3.5-flash" selected>🚀 Gemini 3.5 Flash (Stable - v2.1)</option>
                     <option value="qwen/qwen3.8-27b">🔥 Qwen 3.8 27B qua Groq (Bản 1.0)</option>
                 </select>
 
-                <!-- BỘ CHỌN GIAO DIỆN (DARK / LIGHT / CONTRAST) -->
-                <div class="hidden sm:flex items-center gap-1.5 ml-2 pl-3 border-l theme-border">
-                    <span class="text-xs theme-text-sub">Giao diện:</span>
+                <!-- BỘ CHỌN GIAO DIỆN -->
+                <div class="flex items-center gap-1 pl-2 sm:pl-3 border-l theme-border">
+                    <span class="text-xs theme-text-sub hidden lg:inline" data-i18n="themeLabel">Giao diện:</span>
                     <select id="themeSelect" onchange="changeTheme(this.value)"
-                        class="theme-card border text-xs rounded-lg px-2.5 py-1.5 focus:outline-none focus:border-rose-500 font-medium cursor-pointer">
-                        <option value="dark">🌙 Tối (Dark)</option>
-                        <option value="light">☀️ Sáng (Light)</option>
-                        <option value="contrast">⚡ Tương phản</option>
+                        class="theme-card border text-xs rounded-lg px-2 py-1.5 focus:outline-none focus:border-rose-500 font-medium cursor-pointer">
+                        <option value="dark" data-i18n="themeDark">🌙 Tối (Dark)</option>
+                        <option value="light" data-i18n="themeLight">☀️ Sáng (Light)</option>
+                        <option value="contrast" data-i18n="themeContrast">⚡ Tương phản</option>
+                    </select>
+                </div>
+
+                <!-- BỘ CHỌN NGÔN NGỮ (VI / EN) -->
+                <div class="flex items-center gap-1 pl-2 sm:pl-3 border-l theme-border">
+                    <span class="text-xs theme-text-sub hidden lg:inline" data-i18n="langLabel">Ngôn ngữ:</span>
+                    <select id="langSelect" onchange="changeLanguage(this.value)"
+                        class="theme-card border text-xs rounded-lg px-2 py-1.5 focus:outline-none focus:border-rose-500 font-medium cursor-pointer">
+                        <option value="vi">🇻🇳 Tiếng Việt</option>
+                        <option value="en">🇬🇧 English</option>
                     </select>
                 </div>
             </div>
 
-            <!-- Cụm nút góc trên bên phải: Skills + Hoàn tác + Nút nhỏ Tắt Server -->
-            <div class="flex items-center gap-2">
-                <button onclick="openSkillsModal()" title="Cấu hình Kỹ năng & Trí thông minh cá nhân"
+            <!-- Cụm nút góc trên bên phải -->
+            <div class="flex items-center gap-1.5 sm:gap-2">
+                <button onclick="openSkillsModal()" title="Kỹ năng & Trí thông minh cá nhân"
                     class="text-xs px-2.5 py-1.5 rounded-lg theme-card border hover:border-rose-500/60 transition flex items-center gap-1">
-                    🧠 <span class="hidden md:inline">Trí nhớ & Skills</span>
+                    🧠 <span class="hidden md:inline" data-i18n="skillsNav">Trí nhớ & Skills</span>
                 </button>
                 <button onclick="undoLastTurn()" title="Thu hồi câu hỏi gần nhất"
-                    class="text-xs px-2.5 py-1.5 rounded-lg theme-card border hover:border-rose-500/60 transition">
+                    class="text-xs px-2.5 py-1.5 rounded-lg theme-card border hover:border-rose-500/60 transition" data-i18n="undoBtn">
                     ↩ Hoàn tác
                 </button>
-                <button onclick="shutdownServer()" title="Tắt Server & Thoát ứng dụng"
-                    class="text-xs px-2.5 py-1.5 rounded-lg bg-rose-500/15 hover:bg-rose-600 text-rose-400 hover:text-white border border-rose-500/30 font-semibold transition flex items-center gap-1">
+                <button onclick="shutdownServer()" title="Tắt Server & Thoát"
+                    class="text-xs px-2.5 py-1.5 rounded-lg bg-rose-500/15 hover:bg-rose-600 text-rose-400 hover:text-white border border-rose-500/30 font-semibold transition flex items-center gap-1" data-i18n="exitBtn">
                     ⏻ Thoát
                 </button>
             </div>
@@ -421,21 +442,100 @@ HTML_TEMPLATE = r"""
 
         <!-- Luồng tin nhắn -->
         <div id="chatContainer" class="flex-1 overflow-y-auto px-4 md:px-16 lg:px-32 py-6 space-y-6">
-            <!-- Màn hình chào mừng mặc định (Tông Đỏ Dịu - Hồng Cam) -->
+            <!-- Màn hình chào mừng mặc định -->
             <div id="welcomeScreen" class="h-full flex flex-col items-center justify-center text-center max-w-2xl mx-auto space-y-5 py-12">
-                <div class="w-14 h-14 rounded-2xl bg-gradient-to-tr from-red-600 via-rose-500 to-amber-400 flex items-center justify-center text-2xl font-bold text-white shadow-xl shadow-rose-500/20">✨</div>
+                
+                <!-- Logo LiemAI Premium 10 cánh vát khối đa diện -->
+<div class="w-20 h-20 drop-shadow-2xl flex items-center justify-center">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" class="w-full h-full">
+        <defs>
+            <radialGradient id="welcomeBgGrad" cx="50%" cy="45%" r="60%">
+                <stop offset="0%" stop-color="#b91c1c"/>
+                <stop offset="65%" stop-color="#88081f"/>
+                <stop offset="100%" stop-color="#45030e"/>
+            </radialGradient>
+            <linearGradient id="wGoldL" x1="0" y1="0" x2="1" y2="1">
+                <stop offset="0%" stop-color="#fff1b8"/><stop offset="100%" stop-color="#d4a034"/>
+            </linearGradient>
+            <linearGradient id="wGoldD" x1="0" y1="0" x2="1" y2="1">
+                <stop offset="0%" stop-color="#ba8623"/><stop offset="100%" stop-color="#684507"/>
+            </linearGradient>
+            <linearGradient id="wObsL" x1="0" y1="0" x2="1" y2="1">
+                <stop offset="0%" stop-color="#383a42"/><stop offset="100%" stop-color="#1f2127"/>
+            </linearGradient>
+            <linearGradient id="wObsD" x1="0" y1="0" x2="1" y2="1">
+                <stop offset="0%" stop-color="#181a1f"/><stop offset="100%" stop-color="#0b0c0e"/>
+            </linearGradient>
+            <filter id="wShadow" x="-20%" y="-20%" width="140%" height="140%">
+                <feDropShadow dx="0" dy="6" stdDeviation="6" flood-color="#000" flood-opacity="0.6"/>
+            </filter>
+        </defs>
+        <rect width="256" height="256" rx="58" fill="url(#welcomeBgGrad)" stroke="#f43f5e" stroke-opacity="0.3" stroke-width="2"/>
+        <g filter="url(#wShadow)" transform="translate(128,128)" stroke="#fef08a" stroke-width="1.2" stroke-linejoin="round">
+            <!-- Ngôi sao 10 cánh Titan đen bên ngoài -->
+            <path d="M0,-112 L0,0 L20.5,-39.5 Z" fill="url(#wObsL)"/>
+            <path d="M0,-112 L0,0 L-20.5,-39.5 Z" fill="url(#wObsD)"/>
+            <path d="M65.8,-90.6 L0,0 L43.9,-5.7 Z" fill="url(#wObsL)"/>
+            <path d="M65.8,-90.6 L0,0 L20.5,-39.5 Z" fill="url(#wObsD)"/>
+            <path d="M106.5,-34.6 L0,0 L43.9,-5.7 Z" fill="url(#wObsL)"/>
+            <path d="M106.5,-34.6 L0,0 L35.6,26.7 Z" fill="url(#wObsD)"/>
+            <path d="M106.5,34.6 L0,0 L35.6,26.7 Z" fill="url(#wObsL)"/>
+            <path d="M106.5,34.6 L0,0 L0,44.3 Z" fill="url(#wObsD)"/>
+            <path d="M65.8,90.6 L0,0 L0,44.3 Z" fill="url(#wObsL)"/>
+            <path d="M65.8,90.6 L0,0 L-35.6,26.7 Z" fill="url(#wObsD)"/>
+            <path d="M0,112 L0,0 L-35.6,26.7 Z" fill="url(#wObsL)"/>
+            <path d="M0,112 L0,0 L-43.9,-5.7 Z" fill="url(#wObsD)"/>
+            <path d="M-65.8,90.6 L0,0 L-43.9,-5.7 Z" fill="url(#wObsL)"/>
+            <path d="M-65.8,90.6 L0,0 L-20.5,-39.5 Z" fill="url(#wObsD)"/>
+            <path d="M-106.5,34.6 L0,0 L-20.5,-39.5 Z" fill="url(#wObsL)"/>
+            <path d="M-106.5,34.6 L0,0 L-43.9,-5.7 Z" fill="url(#wObsD)"/>
+            <path d="M-106.5,-34.6 L0,0 L-43.9,-5.7 Z" fill="url(#wObsL)"/>
+            <path d="M-106.5,-34.6 L0,0 L-20.5,-39.5 Z" fill="url(#wObsD)"/>
+            <path d="M-65.8,-90.6 L0,0 L-20.5,-39.5 Z" fill="url(#wObsL)"/>
+            <path d="M-65.8,-90.6 L0,0 L0,-44.3 Z" fill="url(#wObsD)"/>
+
+            <!-- Ngôi sao 10 cánh Vàng kim loại bên trong -->
+            <g stroke="#fff" stroke-opacity="0.4" stroke-width="0.8">
+                <path d="M0,-54 L0,0 L10.5,-18.2 Z" fill="url(#wGoldL)"/>
+                <path d="M0,-54 L0,0 L-10.5,-18.2 Z" fill="url(#wGoldD)"/>
+                <path d="M31.7,-43.7 L0,0 L20.9,-2.7 Z" fill="url(#wGoldL)"/>
+                <path d="M31.7,-43.7 L0,0 L10.5,-18.2 Z" fill="url(#wGoldD)"/>
+                <path d="M51.4,-16.7 L0,0 L20.9,-2.7 Z" fill="url(#wGoldL)"/>
+                <path d="M51.4,-16.7 L0,0 L17.0,12.7 Z" fill="url(#wGoldD)"/>
+                <path d="M51.4,16.7 L0,0 L17.0,12.7 Z" fill="url(#wGoldL)"/>
+                <path d="M51.4,16.7 L0,0 L0,21.2 Z" fill="url(#wGoldD)"/>
+                <path d="M31.7,43.7 L0,0 L0,21.2 Z" fill="url(#wGoldL)"/>
+                <path d="M31.7,43.7 L0,0 L-17.0,12.7 Z" fill="url(#wGoldD)"/>
+                <path d="M0,54 L0,0 L-17.0,12.7 Z" fill="url(#wGoldL)"/>
+                <path d="M0,54 L0,0 L-20.9,-2.7 Z" fill="url(#wGoldD)"/>
+                <path d="M-31.7,43.7 L0,0 L-20.9,-2.7 Z" fill="url(#wGoldL)"/>
+                <path d="M-31.7,43.7 L0,0 L-10.5,-18.2 Z" fill="url(#wGoldD)"/>
+                <path d="M-51.4,16.7 L0,0 L-10.5,-18.2 Z" fill="url(#wGoldL)"/>
+                <path d="M-51.4,16.7 L0,0 L-20.9,-2.7 Z" fill="url(#wGoldD)"/>
+                <path d="M-51.4,-16.7 L0,0 L-20.9,-2.7 Z" fill="url(#wGoldL)"/>
+                <path d="M-51.4,-16.7 L0,0 L-10.5,-18.2 Z" fill="url(#wGoldD)"/>
+                <path d="M-31.7,-43.7 L0,0 L-10.5,-18.2 Z" fill="url(#wGoldL)"/>
+                <path d="M-31.7,-43.7 L0,0 L0,-21.2 Z" fill="url(#wGoldD)"/>
+            </g>
+            <circle cx="0" cy="0" r="3.5" fill="#fff6d1" stroke="#b45309" stroke-width="0.8"/>
+        </g>
+    </svg>
+</div>
+
                 <h2 class="text-2xl md:text-3xl font-bold bg-gradient-to-r from-rose-400 via-red-400 to-amber-300 bg-clip-text text-transparent">
-                    Xin chào <span id="welcomeName">Lieman</span>, hôm nay tôi có thể giúp gì cho bạn?
+                    <span data-i18n="welcomeGreeting">Xin chào</span> <span id="welcomeName">Lieman</span>, <span data-i18n="welcomeQuestion">hôm nay tôi có thể giúp gì cho bạn?</span>
                 </h2>
-                <p class="text-sm theme-text-sub">LiemAI Lumique 3 tích hợp truyền tải trực tiếp (SSE Streaming), Trí thông minh cá nhân và chuyển đổi nóng giữa Gemini & Groq.</p>
+                <p class="text-sm theme-text-sub" data-i18n="welcomeDesc">
+                    LiemAI Lumique 3 tích hợp truyền tải trực tiếp (SSE Streaming), Trí thông minh cá nhân và chuyển đổi nóng giữa Gemini & Groq.
+                </p>
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-3 w-full text-left pt-2">
-                    <button onclick="quickPrompt('Hãy tóm tắt các điểm mạnh của kiến trúc OOP trong dự án của tôi.')" class="p-3.5 rounded-xl theme-card hover:border-rose-500/60 border transition">
-                        <div class="text-xs font-semibold text-rose-400 mb-1">💻 Phân tích Code & OOP</div>
-                        <div class="text-xs theme-text-sub">Kiểm tra cấu trúc hướng đối tượng và đề xuất cải tiến</div>
+                    <button onclick="quickPromptByTag('oop')" class="p-3.5 rounded-xl theme-card hover:border-rose-500/60 border transition">
+                        <div class="text-xs font-semibold text-rose-400 mb-1" data-i18n="card1Title">💻 Phân tích Code & OOP</div>
+                        <div class="text-xs theme-text-sub" data-i18n="card1Desc">Kiểm tra cấu trúc hướng đối tượng và đề xuất cải tiến</div>
                     </button>
-                    <button onclick="quickPrompt('Hãy giúp tôi phác thảo diễn biến tiếp theo cho tiểu thuyết Biên Niên Sử Inependia.')" class="p-3.5 rounded-xl theme-card hover:border-rose-500/60 border transition">
-                        <div class="text-xs font-semibold text-amber-400 mb-1">✒️ Sáng tác & Cốt truyện</div>
-                        <div class="text-xs theme-text-sub">Phát triển kịch bản và chiều sâu tâm lý nhân vật</div>
+                    <button onclick="quickPromptByTag('novel')" class="p-3.5 rounded-xl theme-card hover:border-rose-500/60 border transition">
+                        <div class="text-xs font-semibold text-amber-400 mb-1" data-i18n="card2Title">✒️ Sáng tác & Cốt truyện</div>
+                        <div class="text-xs theme-text-sub" data-i18n="card2Desc">Phát triển kịch bản và chiều sâu tâm lý nhân vật</div>
                     </button>
                 </div>
             </div>
@@ -454,7 +554,7 @@ HTML_TEMPLATE = r"""
                 <!-- Khung nhập tin nhắn -->
                 <div class="theme-card border focus-within:border-rose-500 rounded-2xl p-2.5 flex items-end gap-2 shadow-xl">
                     <input type="file" id="fileInput" class="hidden" onchange="handleFileSelect(event)">
-                    <button onclick="document.getElementById('fileInput').click()" title="Đính kèm file code/văn bản"
+                    <button onclick="document.getElementById('fileInput').click()" title="Đính kèm file"
                         class="p-2 rounded-xl hover:bg-rose-500/10 theme-text-sub hover:text-rose-400 transition shrink-0">
                         📎
                     </button>
@@ -463,10 +563,10 @@ HTML_TEMPLATE = r"""
                         oninput="autoResize(this)" onkeydown="handleKeydown(event)"
                         class="w-full bg-transparent text-sm placeholder-slate-500 focus:outline-none resize-none max-h-44 py-1.5"></textarea>
 
-                    <button id="stopBtn" onclick="stopGeneration()" class="hidden px-3 py-2 rounded-xl bg-red-600 hover:bg-red-500 text-white text-xs font-semibold shrink-0 transition">
+                    <button id="stopBtn" onclick="stopGeneration()" class="hidden px-3 py-2 rounded-xl bg-red-600 hover:bg-red-500 text-white text-xs font-semibold shrink-0 transition" data-i18n="stopBtn">
                         ⏹ Dừng
                     </button>
-                    <button id="sendBtn" onclick="sendMessage()" class="px-4 py-2 rounded-xl bg-gradient-to-r from-rose-600 to-red-500 hover:from-rose-500 hover:to-red-400 text-white text-xs font-semibold shrink-0 transition shadow-md shadow-rose-600/20">
+                    <button id="sendBtn" onclick="sendMessage()" class="px-4 py-2 rounded-xl bg-gradient-to-r from-rose-600 to-red-500 hover:from-rose-500 hover:to-red-400 text-white text-xs font-semibold shrink-0 transition shadow-md shadow-rose-600/20" data-i18n="sendBtn">
                         Gửi ➤
                     </button>
                 </div>
@@ -481,8 +581,8 @@ HTML_TEMPLATE = r"""
                 <div class="flex items-center gap-2">
                     <span class="text-xl">🧠</span>
                     <div>
-                        <h3 class="font-bold text-base">Kỹ năng & Trí thông minh cá nhân</h3>
-                        <p class="text-xs theme-text-sub">Tùy chỉnh bộ nhớ dài hạn và các kỹ năng chuyên môn cho LiemAI</p>
+                        <h3 class="font-bold text-base" data-i18n="modalTitle">Kỹ năng & Trí thông minh cá nhân</h3>
+                        <p class="text-xs theme-text-sub" data-i18n="modalSub">Tùy chỉnh bộ nhớ dài hạn và các kỹ năng chuyên môn cho LiemAI</p>
                     </div>
                 </div>
                 <button onclick="closeSkillsModal()" class="text-sm px-2.5 py-1 rounded-lg hover:bg-rose-500/20 hover:text-rose-400 transition">✕</button>
@@ -491,13 +591,13 @@ HTML_TEMPLATE = r"""
             <div class="space-y-4 overflow-y-auto pr-1 flex-1">
                 <!-- 1. Trí nhớ cá nhân -->
                 <div>
-                    <label class="text-xs font-semibold text-rose-400 uppercase tracking-wider block mb-1">
+                    <label class="text-xs font-semibold text-rose-400 uppercase tracking-wider block mb-1" data-i18n="sec1Title">
                         1. Trí thông minh cá nhân (Hồ sơ & Ngữ cảnh mặc định)
                     </label>
                     <textarea id="personalMemoryInput" rows="3" placeholder="Ví dụ: Tôi là sinh viên IT2 Bách Khoa, thích giải thích code bằng Java/Python ngắn gọn..."
                         class="w-full theme-input border rounded-xl p-3 text-xs focus:outline-none focus:border-rose-500"></textarea>
                     <div class="flex justify-end mt-1.5">
-                        <button onclick="savePersonalMemory()" class="px-3 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-500 text-white text-xs font-medium transition">
+                        <button onclick="savePersonalMemory()" class="px-3 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-500 text-white text-xs font-medium transition" data-i18n="saveMemoryBtn">
                             💾 Lưu Trí nhớ cá nhân
                         </button>
                     </div>
@@ -505,7 +605,7 @@ HTML_TEMPLATE = r"""
 
                 <!-- 2. Danh sách Kỹ năng (Skills) -->
                 <div class="space-y-2">
-                    <label class="text-xs font-semibold text-rose-400 uppercase tracking-wider block">
+                    <label class="text-xs font-semibold text-rose-400 uppercase tracking-wider block" data-i18n="sec2Title">
                         2. Danh sách Kỹ năng (Bật/Tắt linh hoạt)
                     </label>
                     <div id="modalSkillsList" class="space-y-2"></div>
@@ -513,12 +613,12 @@ HTML_TEMPLATE = r"""
 
                 <!-- 3. Thêm Kỹ năng mới -->
                 <div class="p-3 rounded-xl border theme-border space-y-2">
-                    <div class="text-xs font-semibold">＋ Thêm Kỹ năng (Skill) mới</div>
+                    <div class="text-xs font-semibold" data-i18n="sec3Title">＋ Thêm Kỹ năng (Skill) mới</div>
                     <input id="newSkillName" type="text" placeholder="Tên kỹ năng (VD: 🔥 Chuyên gia giải thuật C++)"
                         class="w-full theme-input border rounded-lg px-2.5 py-1.5 text-xs focus:outline-none focus:border-rose-500">
                     <textarea id="newSkillInstruction" rows="2" placeholder="Chỉ dẫn cho AI khi kỹ năng này bật (VD: Luôn phân tích độ phức tạp Time/Space Big-O...)"
                         class="w-full theme-input border rounded-lg px-2.5 py-1.5 text-xs focus:outline-none focus:border-rose-500"></textarea>
-                    <button onclick="addNewSkill()" class="w-full py-1.5 rounded-lg bg-rose-500/20 hover:bg-rose-600 text-rose-300 hover:text-white border border-rose-500/30 text-xs font-semibold transition">
+                    <button onclick="addNewSkill()" class="w-full py-1.5 rounded-lg bg-rose-500/20 hover:bg-rose-600 text-rose-300 hover:text-white border border-rose-500/30 text-xs font-semibold transition" data-i18n="addSkillBtn">
                         + Thêm vào bộ Kỹ năng
                     </button>
                 </div>
@@ -529,6 +629,153 @@ HTML_TEMPLATE = r"""
     <script>
         let attachedFile = { name: "", content: "" };
         let abortController = null;
+        let currentLang = 'vi';
+
+        // TỪ ĐIỂN SONG NGỮ (VIỆT - ANH) CHO TOÀN BỘ GIAO DIỆN
+        const TRANSLATIONS = {
+            vi: {
+                newChat: "Cuộc trò chuyện mới",
+                userNameLabel: "Tên của bạn ({name})",
+                tempLabel: "ĐỘ SÁNG TẠO (TEMP)",
+                autoSaveLabel: "Tự động lưu JSON",
+                skillsHeader: "🧠 Kỹ năng & Trí nhớ",
+                manageBtn: "+ Quản lý",
+                savedSessions: "Lịch sử đã lưu (.json)",
+                newSaveBtn: "+ Lưu mới",
+                exportMdBtn: "📥 Xuất hội thoại ra Markdown (.md)",
+                modelLabel: "Mô hình:",
+                themeLabel: "Giao diện:",
+                langLabel: "Ngôn ngữ:",
+                themeDark: "🌙 Tối (Dark)",
+                themeLight: "☀️ Sáng (Light)",
+                themeContrast: "⚡ Tương phản",
+                skillsNav: "Trí nhớ & Skills",
+                undoBtn: "↩ Hoàn tác",
+                exitBtn: "⏻ Thoát",
+                welcomeGreeting: "Xin chào",
+                welcomeQuestion: "hôm nay tôi có thể giúp gì cho bạn?",
+                welcomeDesc: "LiemAI Lumique 3 tích hợp truyền tải trực tiếp (SSE Streaming), Trí thông minh cá nhân và chuyển đổi nóng giữa Gemini & Groq.",
+                card1Title: "💻 Phân tích Code & OOP",
+                card1Desc: "Kiểm tra cấu trúc hướng đối tượng và đề xuất cải tiến",
+                card2Title: "✒️ Sáng tác & Cốt truyện",
+                card2Desc: "Phát triển kịch bản và chiều sâu tâm lý nhân vật",
+                inputPlaceholder: "Nhập tin nhắn cho LiemAI (Enter để gửi, Shift+Enter xuống dòng)...",
+                stopBtn: "⏹ Dừng",
+                sendBtn: "Gửi ➤",
+                thinking: "Đang suy nghĩ...",
+                modalTitle: "Kỹ năng & Trí thông minh cá nhân",
+                modalSub: "Tùy chỉnh bộ nhớ dài hạn và các kỹ năng chuyên môn cho LiemAI",
+                sec1Title: "1. Trí thông minh cá nhân (Hồ sơ & Ngữ cảnh mặc định)",
+                sec1Placeholder: "Ví dụ: Tôi là sinh viên IT2 Bách Khoa, thích giải thích code bằng Java/Python ngắn gọn...",
+                saveMemoryBtn: "💾 Lưu Trí nhớ cá nhân",
+                sec2Title: "2. Danh sách Kỹ năng (Bật/Tắt linh hoạt)",
+                sec3Title: "＋ Thêm Kỹ năng (Skill) mới",
+                skillNamePlaceholder: "Tên kỹ năng (VD: 🔥 Chuyên gia giải thuật C++)",
+                skillDescPlaceholder: "Chỉ dẫn cho AI khi kỹ năng này bật (VD: Luôn phân tích độ phức tạp Time/Space Big-O...)",
+                addSkillBtn: "+ Thêm vào bộ Kỹ năng",
+                unlockBtn: "Mở",
+                keyPlaceholder: "Nhập key Premium...",
+                skillActive: "Đang bật",
+                skillInactive: "Đang tắt",
+                btnDisable: "Tắt",
+                btnEnable: "Bật",
+                shutdownConfirm: "Bạn muốn tắt Server LiemAI Lumique 3 và thoát ứng dụng?",
+                shutdownTitle: "Đã tắt Server LiemAI Lumique 3!",
+                shutdownDesc: "Tiến trình Python đã kết thúc an toàn. Bạn có thể đóng tab trình duyệt này.",
+                memorySavedAlert: "✔ Đã cập nhật Trí thông minh cá nhân!",
+                keyWrongAlert: "Key không chính xác! (Gợi ý: nhập 'key')",
+                missingSkillAlert: "Vui lòng nhập đầy đủ Tên kỹ năng và Chỉ dẫn!",
+                promptNameSave: "Nhập tên file muốn lưu (.json):",
+                promptOOP: "Hãy tóm tắt các điểm mạnh của kiến trúc OOP trong dự án của tôi.",
+                promptNovel: "Hãy giúp tôi phác thảo diễn biến tiếp theo cho tiểu thuyết Biên Niên Sử Inependia."
+            },
+            en: {
+                newChat: "New Conversation",
+                userNameLabel: "Your Name ({name})",
+                tempLabel: "CREATIVITY (TEMP)",
+                autoSaveLabel: "Auto-save JSON",
+                skillsHeader: "🧠 Skills & Memory",
+                manageBtn: "+ Manage",
+                savedSessions: "Saved Sessions (.json)",
+                newSaveBtn: "+ New Save",
+                exportMdBtn: "📥 Export to Markdown (.md)",
+                modelLabel: "Model:",
+                themeLabel: "Theme:",
+                langLabel: "Language:",
+                themeDark: "🌙 Dark",
+                themeLight: "☀️ Light",
+                themeContrast: "⚡ High Contrast",
+                skillsNav: "Memory & Skills",
+                undoBtn: "↩ Undo",
+                exitBtn: "⏻ Exit",
+                welcomeGreeting: "Hello",
+                welcomeQuestion: "how can I assist you today?",
+                welcomeDesc: "LiemAI Lumique 3 integrates real-time SSE streaming, Personal Intelligence, and hot-swapping between Gemini & Groq.",
+                card1Title: "💻 OOP & Code Analysis",
+                card1Desc: "Inspect OOP architecture and propose improvements",
+                card2Title: "✒️ Storytelling & Novel",
+                card2Desc: "Develop plot twists and character psychology",
+                inputPlaceholder: "Type a message for LiemAI (Enter to send, Shift+Enter for newline)...",
+                stopBtn: "⏹ Stop",
+                sendBtn: "Send ➤",
+                thinking: "Thinking...",
+                modalTitle: "Custom Skills & Personal Intelligence",
+                modalSub: "Customize long-term memory and specialized capabilities for LiemAI",
+                sec1Title: "1. Personal Intelligence (Default Profile & Context)",
+                sec1Placeholder: "E.g., I'm a CS sophomore at HUST, prefer concise Java/Python code explanations...",
+                saveMemoryBtn: "💾 Save Personal Memory",
+                sec2Title: "2. Custom Skills (Toggle ON/OFF)",
+                sec3Title: "＋ Add New Skill",
+                skillNamePlaceholder: "Skill name (e.g., 🔥 C++ Algorithm Expert)",
+                skillDescPlaceholder: "Instructions for AI when active (e.g., Always analyze Big-O Time/Space complexity...)",
+                addSkillBtn: "+ Add to Custom Skills",
+                unlockBtn: "Unlock",
+                keyPlaceholder: "Enter Premium key...",
+                skillActive: "Active",
+                skillInactive: "Inactive",
+                btnDisable: "Disable",
+                btnEnable: "Enable",
+                shutdownConfirm: "Do you want to shutdown LiemAI Lumique 3 server and exit?",
+                shutdownTitle: "LiemAI Lumique 3 Server Terminated!",
+                shutdownDesc: "Python process has stopped safely. You can close this browser tab.",
+                memorySavedAlert: "✔ Personal Intelligence updated successfully!",
+                keyWrongAlert: "Invalid key! (Hint: enter 'key')",
+                missingSkillAlert: "Please enter both skill name and instruction!",
+                promptNameSave: "Enter filename to save (.json):",
+                promptOOP: "Summarize the key strengths of OOP architecture in my project.",
+                promptNovel: "Help me outline the next plot developments for the novel Inependia Chronicles."
+            }
+        };
+
+        // HÀM ÁP DỤNG NGÔN NGỮ CHO GIAO DIỆN
+        function changeLanguage(lang) {
+            currentLang = lang;
+            localStorage.setItem('liemai_lang', lang);
+            const sel = document.getElementById('langSelect');
+            if (sel && sel.value !== lang) sel.value = lang;
+
+            const t = TRANSLATIONS[lang] || TRANSLATIONS.vi;
+            document.querySelectorAll('[data-i18n]').forEach(el => {
+                const key = el.getAttribute('data-i18n');
+                if (t[key]) el.innerText = t[key];
+            });
+
+            // Cập nhật placeholders
+            document.getElementById('messageInput').placeholder = t.inputPlaceholder;
+            document.getElementById('personalMemoryInput').placeholder = t.sec1Placeholder;
+            document.getElementById('newSkillName').placeholder = t.skillNamePlaceholder;
+            document.getElementById('newSkillInstruction').placeholder = t.skillDescPlaceholder;
+            document.getElementById('premiumKeyInput').placeholder = t.keyPlaceholder;
+
+            // Đồng bộ sang Backend để AI biết ngữ cảnh ngôn ngữ
+            updateSettings();
+            refreshStatus();
+        }
+
+        (function initSavedLanguage() {
+            const savedLang = localStorage.getItem('liemai_lang') || 'vi';
+            currentLang = savedLang;
+        })();
 
         marked.setOptions({
             highlight: function(code, lang) {
@@ -565,9 +812,10 @@ HTML_TEMPLATE = r"""
             }
         }
 
-        function quickPrompt(text) {
+        function quickPromptByTag(tag) {
+            const t = TRANSLATIONS[currentLang] || TRANSLATIONS.vi;
             const input = document.getElementById('messageInput');
-            input.value = text;
+            input.value = (tag === 'oop') ? t.promptOOP : t.promptNovel;
             sendMessage();
         }
 
@@ -620,11 +868,12 @@ HTML_TEMPLATE = r"""
             const text = input.value.trim();
             if (!text && !attachedFile.content) return;
 
-            let displayMsg = attachedFile.name ? `📎 [Đính kèm: ${attachedFile.name}]\n${text}` : text;
+            const t = TRANSLATIONS[currentLang] || TRANSLATIONS.vi;
+            let displayMsg = attachedFile.name ? `📎 [File: ${attachedFile.name}]\n${text}` : text;
             createMessageBubble('user', displayMsg);
 
             const payload = {
-                message: text || "Hãy phân tích nội dung file đính kèm này.",
+                message: text || (currentLang === 'en' ? "Please analyze this attached file." : "Hãy phân tích nội dung file đính kèm này."),
                 file_name: attachedFile.name,
                 file_content: attachedFile.content
             };
@@ -633,7 +882,7 @@ HTML_TEMPLATE = r"""
             input.style.height = 'auto';
             clearAttachment();
 
-            const aiBubble = createMessageBubble('assistant', '<span class="theme-text-sub animate-pulse">Đang suy nghĩ...</span>');
+            const aiBubble = createMessageBubble('assistant', `<span class="theme-text-sub animate-pulse">${t.thinking}</span>`);
             document.getElementById('sendBtn').classList.add('hidden');
             document.getElementById('stopBtn').classList.remove('hidden');
 
@@ -681,7 +930,7 @@ HTML_TEMPLATE = r"""
                 }
             } catch (err) {
                 if (err.name === 'AbortError') {
-                    fullMarkdown += "\n\n*(Đã dừng sinh văn bản)*";
+                    fullMarkdown += (currentLang === 'en') ? "\n\n*(Generation stopped)*" : "\n\n*(Đã dừng sinh văn bản)*";
                     aiBubble.innerHTML = marked.parse(fullMarkdown);
                 } else {
                     aiBubble.innerHTML = `<span class="text-rose-400">✖ Lỗi kết nối: ${err.message}</span>`;
@@ -707,13 +956,14 @@ HTML_TEMPLATE = r"""
             await fetch('/api/settings', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ user_name, model_id, temperature, is_persistent })
+                body: JSON.stringify({ user_name, model_id, temperature, is_persistent, language: currentLang })
             });
             refreshStatus();
         }
 
         async function unlockPremium() {
             const key = document.getElementById('premiumKeyInput').value.trim();
+            const t = TRANSLATIONS[currentLang] || TRANSLATIONS.vi;
             const res = await fetch('/api/unlock', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -724,7 +974,7 @@ HTML_TEMPLATE = r"""
                 document.getElementById('premiumKeyInput').value = "";
                 refreshStatus();
             } else {
-                alert("Key không chính xác! (Gợi ý: nhập 'key')");
+                alert(t.keyWrongAlert);
             }
         }
 
@@ -740,13 +990,14 @@ HTML_TEMPLATE = r"""
 
         async function savePersonalMemory() {
             const memory = document.getElementById('personalMemoryInput').value;
+            const t = TRANSLATIONS[currentLang] || TRANSLATIONS.vi;
             await fetch('/api/intelligence/memory', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ personal_memory: memory })
             });
             refreshStatus();
-            alert("✔ Đã cập nhật Trí thông minh cá nhân!");
+            alert(t.memorySavedAlert);
         }
 
         async function toggleSkill(skillId) {
@@ -770,8 +1021,9 @@ HTML_TEMPLATE = r"""
         async function addNewSkill() {
             const name = document.getElementById('newSkillName').value.trim();
             const instruction = document.getElementById('newSkillInstruction').value.trim();
+            const t = TRANSLATIONS[currentLang] || TRANSLATIONS.vi;
             if (!name || !instruction) {
-                alert("Vui lòng nhập đầy đủ Tên kỹ năng và Chỉ dẫn!");
+                alert(t.missingSkillAlert);
                 return;
             }
             await fetch('/api/intelligence/add_skill', {
@@ -784,17 +1036,18 @@ HTML_TEMPLATE = r"""
             refreshStatus();
         }
 
-        // NÚT TẮT SERVER TRỰC TIẾP GÓC TRÊN PHẢI
+        // NÚT TẮT SERVER TRỰC TIẾP
         async function shutdownServer() {
-            if (!confirm("Bạn muốn tắt Server LiemAI Lumique 3 và thoát ứng dụng?")) return;
+            const t = TRANSLATIONS[currentLang] || TRANSLATIONS.vi;
+            if (!confirm(t.shutdownConfirm)) return;
             try {
                 await fetch('/api/shutdown', { method: 'POST' });
             } catch (e) {}
             document.body.innerHTML = `
                 <div class="h-screen w-screen flex flex-col items-center justify-center theme-main text-center p-6 space-y-3">
                     <div class="w-14 h-14 rounded-2xl bg-gradient-to-tr from-red-600 via-rose-500 to-amber-400 flex items-center justify-center text-2xl text-white shadow-xl">👋</div>
-                    <h2 class="text-xl font-bold">Đã tắt Server LiemAI Lumique 3!</h2>
-                    <p class="text-sm theme-text-sub">Tiến trình Python đã kết thúc an toàn. Bạn có thể đóng tab trình duyệt này.</p>
+                    <h2 class="text-xl font-bold">${t.shutdownTitle}</h2>
+                    <p class="text-sm theme-text-sub">${t.shutdownDesc}</p>
                 </div>
             `;
         }
@@ -810,7 +1063,8 @@ HTML_TEMPLATE = r"""
         }
 
         async function saveSessionPrompt() {
-            const name = prompt("Nhập tên file muốn lưu (.json):", `session_${document.getElementById('userNameInput').value}.json`);
+            const t = TRANSLATIONS[currentLang] || TRANSLATIONS.vi;
+            const name = prompt(t.promptNameSave, `session_${document.getElementById('userNameInput').value}.json`);
             if (!name) return;
             await fetch('/api/sessions/save', {
                 method: 'POST',
@@ -847,17 +1101,19 @@ HTML_TEMPLATE = r"""
         async function refreshStatus() {
             const res = await fetch('/api/status');
             const data = await res.json();
+            const t = TRANSLATIONS[currentLang] || TRANSLATIONS.vi;
 
             if (data.is_premium) {
                 document.getElementById('planBadge').className = "text-xs font-semibold px-2 py-0.5 rounded bg-rose-500/20 text-rose-400";
                 document.getElementById('planBadge').innerText = "👑 PREMIUM";
-                document.getElementById('quotaText').innerText = "Không giới hạn";
+                document.getElementById('quotaText').innerText = (currentLang === 'en') ? "Unlimited" : "Không giới hạn";
                 document.getElementById('quotaBar').style.width = "100%";
                 document.getElementById('quotaBar').className = "bg-gradient-to-r from-red-600 via-rose-500 to-amber-400 h-full";
                 document.getElementById('keyInputGroup').classList.add('hidden');
             } else {
                 const pct = Math.min((data.num_of_questions / data.question_limit) * 100, 100);
-                document.getElementById('quotaText').innerText = `${data.num_of_questions} / ${data.question_limit} câu`;
+                const suffix = (currentLang === 'en') ? "prompts" : "câu";
+                document.getElementById('quotaText').innerText = `${data.num_of_questions} / ${data.question_limit} ${suffix}`;
                 document.getElementById('quotaBar').style.width = `${pct}%`;
             }
 
@@ -869,12 +1125,13 @@ HTML_TEMPLATE = r"""
                 </button>
             `).join('');
 
-            // Render danh sách Skills ở Sidebar và trong Modal
+            // Cập nhật giá trị vào modal trí nhớ
             const memInput = document.getElementById('personalMemoryInput');
             if (memInput && document.activeElement !== memInput) {
                 memInput.value = data.personal_memory || "";
             }
 
+            // Render Skills ở Sidebar
             const sideSkills = document.getElementById('sidebarSkillsList');
             sideSkills.innerHTML = data.skills.map(s => `
                 <div onclick="toggleSkill('${s.id}')" class="flex items-center justify-between px-2 py-1 rounded-lg cursor-pointer hover:bg-rose-500/10 transition">
@@ -883,6 +1140,7 @@ HTML_TEMPLATE = r"""
                 </div>
             `).join('');
 
+            // Render Skills trong Modal
             const modalSkills = document.getElementById('modalSkillsList');
             if (modalSkills) {
                 modalSkills.innerHTML = data.skills.map(s => `
@@ -890,13 +1148,13 @@ HTML_TEMPLATE = r"""
                         <div class="flex-1">
                             <div class="text-xs font-semibold flex items-center gap-2">
                                 <span>${escapeHtml(s.name)}</span>
-                                <span class="text-[10px] px-1.5 py-0.5 rounded ${s.enabled ? 'bg-rose-500/20 text-rose-400' : 'bg-neutral-700/30 theme-text-sub'}">${s.enabled ? 'Đang bật' : 'Đang tắt'}</span>
+                                <span class="text-[10px] px-1.5 py-0.5 rounded ${s.enabled ? 'bg-rose-500/20 text-rose-400' : 'bg-neutral-700/30 theme-text-sub'}">${s.enabled ? t.skillActive : t.skillInactive}</span>
                             </div>
                             <p class="text-[11px] theme-text-sub mt-1">${escapeHtml(s.instruction)}</p>
                         </div>
                         <div class="flex items-center gap-1 shrink-0">
                             <button onclick="toggleSkill('${s.id}')" class="px-2 py-1 rounded-lg text-xs border theme-border hover:border-rose-500 transition">
-                                ${s.enabled ? 'Tắt' : 'Bật'}
+                                ${s.enabled ? t.btnDisable : t.btnEnable}
                             </button>
                             <button onclick="deleteSkill('${s.id}')" class="px-2 py-1 rounded-lg text-xs text-rose-400 hover:bg-rose-500/20 transition">🗑</button>
                         </div>
@@ -905,7 +1163,9 @@ HTML_TEMPLATE = r"""
             }
         }
 
-        window.onload = refreshStatus;
+        window.onload = function() {
+            changeLanguage(currentLang);
+        };
     </script>
 </body>
 </html>
@@ -930,6 +1190,7 @@ def api_status():
         "user_name": state.user_name,
         "model_id": state.model_id,
         "temperature": state.temperature,
+        "language": state.language,
         "is_premium": state.is_premium,
         "num_of_questions": state.num_of_questions,
         "question_limit": LiemConfig.QUESTION_LIMIT,
@@ -947,6 +1208,7 @@ def api_settings():
     state.model_id = data.get("model_id", state.model_id)
     state.temperature = float(data.get("temperature", state.temperature))
     state.is_persistent = bool(data.get("is_persistent", state.is_persistent))
+    state.language = data.get("language", state.language)
     return jsonify({"success": True})
 
 
@@ -996,7 +1258,6 @@ def api_delete_skill():
 
 @app.route("/api/shutdown", methods=["POST"])
 def api_shutdown():
-    # Tự động đóng tiến trình Python sau 0.4 giây để kịp trả response về trình duyệt
     threading.Timer(0.4, lambda: os._exit(0)).start()
     return jsonify({"success": True})
 
@@ -1060,9 +1321,12 @@ def api_export_md():
 @app.route("/api/chat", methods=["POST"])
 def api_chat():
     if not state.is_premium and state.num_of_questions >= LiemConfig.QUESTION_LIMIT:
-        return jsonify({
-            "error": f"Bạn đã hết {LiemConfig.QUESTION_LIMIT} lượt hỏi miễn phí! Vui lòng nhập mã khóa Lumique Premium ở góc trái màn hình."
-        }), 403
+        limit_msg = (
+            f"You have reached the {LiemConfig.QUESTION_LIMIT} free prompts limit! Please enter the Lumique Premium key in the bottom-left corner."
+            if state.language == "en"
+            else f"Bạn đã hết {LiemConfig.QUESTION_LIMIT} lượt hỏi miễn phí! Vui lòng nhập mã khóa Lumique Premium ở góc trái màn hình."
+        )
+        return jsonify({"error": limit_msg}), 403
 
     data = request.json or {}
     user_msg = data.get("message", "")
@@ -1070,7 +1334,7 @@ def api_chat():
     file_content = data.get("file_content", "")
 
     if file_name and file_content:
-        full_prompt = f"[File đính kèm: {file_name}]\n```\n{file_content}\n```\n\n{user_msg}"
+        full_prompt = f"[File: {file_name}]\n```\n{file_content}\n```\n\n{user_msg}"
     else:
         full_prompt = user_msg
 
