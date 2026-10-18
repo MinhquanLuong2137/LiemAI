@@ -40,33 +40,48 @@ Built for developers who love fast, keyboard-centric terminal workflows:
 
 ## 🛠️ Installation & Quick Start
 
-### 1. Prerequisites & Dependencies
-Clone the repository and install the required Python packages:
+### 1. Environment Configuration (`.env`)
+Create a `.env` file in the project root directory with your API credentials:
 
-```bash
-pip install requests python-dotenv rich flask
-```
-
-### 2. Environment Configuration ( .env )
-
-Create a `.env` file in the root directory with your API credentials:
-
+```env
 GEMINI_API_KEY_V20=your_google_gemini_api_key_here
 API_KEY_V10=your_groq_api_key_here
+```
+
+### 2. System Prompt Configuration (`prompt_v30.txt`)
+Create a `prompt_v30.txt` file (or `prompt_v20.txt`) in the root directory to define LiemAI's identity, behavioral rules, and creator lore. 
+
+> **Important:** Always include the `{name}` placeholder where you want the user's name to be dynamically injected at runtime.
+
+Example template for `prompt_v30.txt`:
+```text
+You are LiemAI — a witty, intelligent, and highly capable AI assistant created by Lương Minh Quân.
+Chatting with: {name}.
+
+Creator Profile:
+- Name: Lương Minh Quân (Born March 21, 2007, Hải Phòng).
+- Background: Alumnus of THPT Chuyên Trần Phú; Sophomore in Computer Engineering (IT2) at Hanoi University of Science and Technology (HUST).
+- Role: creator of LiemAI.
+
+Strict Rules:
+- Language: Match {name}'s language automatically (English or Vietnamese).
+- Tone: Natural, confident, witty, and loyal to creator Quân.
+- Response: Direct, structured Markdown formatting with no fluff.
+```
+*(If omitted, LiemAI will automatically fall back to its built-in default system prompt).*
 
 ### 3. Launch Your Preferred Edition
 
-* To launch LiemAI Lumique 3 (Web UI):
+* **To launch LiemAI Lumique 3 (Web Studio):**
   ```bash
   python LiemAI_Lumique_3.py
   ```
+  *(Your default browser will automatically open at `[http://127.0.0.1:5000](http://127.0.0.1:5000)`)*
 
-  (Your default browser will automatically open at [http://127.0.0.1:5000](http://127.0.0.1:5000))
-
-*  To launch LiemAI 3.0 (Terminal CLI)
-```
+* **To launch LiemAI 3.0 (Terminal CLI):**
+  ```bash
   python LiemAI_3.0.py
-```
+  ```
 
 
 ⌨️ LiemAI 3.0 Integrated Slash Commands (CLI)
