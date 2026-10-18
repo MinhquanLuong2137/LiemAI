@@ -52,15 +52,15 @@ class ChatState:
 
         # Trí thông minh cá nhân & Kỹ năng (Skills)
         self.personal_memory: str = (
-            "Người dùng là sinh viên ngành Kỹ thuật Máy tính (IT2) tại ĐH Bách Khoa Hà Nội, "
-            "đam mê lập trình OOP và là tác giả tiểu thuyết Biên Niên Sử Inependia."
+            "Người dùng là sinh viên tại ĐH Bách Khoa Hà Nội, "
+            "đam mê lập trình và toán học."
         )
         self.skills: List[Dict] = [
             {
                 "id": "skill_oop",
-                "name": "💻 Chuyên gia OOP & Clean Code",
+                "name": "💻 Chuyên gia lập trình",
                 "instruction": "Khi phân tích code, luôn kiểm tra kỹ 4 tính chất OOP, nguyên lý SOLID, bắt lỗi tiềm ẩn và đề xuất code sạch, tối ưu.",
-                "enabled": True
+                "enabled": False
             },
             {
                 "id": "skill_novel",

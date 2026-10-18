@@ -15,7 +15,7 @@ Try my first Vietnamese rebadged Chatbot (")>
 | **v2.0** | `LiemAI 2.0` | Real-time SSE Streaming, `rich` Markdown terminal UI, local file inspection (`/file`), and JSON session persistence (`/save`, `/load`, `/reset`). |
 | **v2.1** | `LiemAI 2.1 Demo` | Unified event loop, HTTP Header API key security, Sliding Window context (`MAX_CONTEXT_TURNS`), and runtime `/key` & `/status` commands. |
 | **v3.0 (CLI)** | **`LiemAI 3.0`** | **OOP Terminal Studio:** 4-class modular OOP design, Dual-Engine hot-swapping (Gemini + Groq), TCP connection pooling (`requests.Session`), `shlex` file path parser, `/undo`, `/history`, and Markdown report exporting (`/export`). |
-| **v3.0 (Web)** | **`LiemAI Lumique 3`** | **Full-Stack Web Studio:** Modern browser-based GUI (Flask + Tailwind CSS + Marked.js + Highlight.js) with 1-click file attachments (`📎`), live streaming bubbles, interactive temperature slider, visual quota bar, and sidebar session manager. |
+| **v3.0 (Web)** | **`LiemAI Lumique 3`** | **Full-Stack Web Studio:** Modern browser GUI (Flask + Tailwind CSS + Marked.js + Highlight.js) in a sleek Soft Rose palette, featuring 3-mode theme switching (**🌙 Dark / ☀️ Light / ⚡ High Contrast**), **Personal Intelligence & Custom Skills** management, 1-click file attachments (`📎`), and a direct header shutdown button (`⏻ Exit`). |
 
 ---
 
@@ -23,11 +23,11 @@ Try my first Vietnamese rebadged Chatbot (")>
 
 ### 1. LiemAI Lumique 3 (Web Studio Edition)
 Designed for a seamless, modern browser experience similar to leading web AI studios:
-* **Real-Time Streaming Bubbles:** Instant token-by-token Markdown rendering with syntax-highlighted code blocks.
-* **1-Click File Attachment (`📎`):** Attach source code (`.py`, `.java`, `.cpp`) or documents (`.md`, `.txt`, `.json`) directly from your file explorer without typing paths.
-* **Hot-Swappable Model Header & Controls:** Switch between models and fine-tune creativity (`Temperature`) via live UI controls.
-* **Sidebar Session & Export Manager:** Create new chats, load previous `.json` sessions with a single click, undo the last turn (`↩ Hoàn tác`), or download the entire conversation as a formatted `.md` report.
-* **Visual Quota & Instant Premium Unlock:** Track Free Tier usage on a live progress bar and unlock **👑 PREMIUM** directly from the sidebar.
+* **Direct Header Shutdown Button (`⏻ Exit`):** A compact button in the top-right header that cleanly terminates the Flask background process and Python runtime without touching the terminal.
+* **3-Mode Dynamic Theming:** Switch seamlessly between **🌙 Dark**, **☀️ Light (soft & eye-friendly)**, and **⚡ High Contrast** modes, all styled in a refined Soft Rose accent palette.
+* **Personal Intelligence & Custom Skills:** Define a persistent personal profile and toggle/manage modular skills (OOP & Clean Code, Novel Writing, Concise Answers, etc.) saved locally in `liemai_intelligence.json`.
+* **1-Click File Attachments (`📎`):** Pick local files (`.java`, `.py`, `.md`, `.txt`, etc.) directly via native file explorer with live size badges before sending.
+* **Real-Time SSE Streaming & Session Tools:** Smooth token streaming, automatic syntax highlighting, visual Free Tier quota meter (`0/5`), instant 👑 PREMIUM unlock, and 1-click Markdown (`.md`) transcript export.
 
 ### 2. LiemAI 3.0 (Terminal Studio - CLI Edition)
 Built for developers who love fast, keyboard-centric terminal workflows:
