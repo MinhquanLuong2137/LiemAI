@@ -2,6 +2,10 @@ Try my first Vietnamese rebadged Chatbot (")>
 
 # ✨ LiemAI — Evolution of a Custom AI Assistant (CLI & Lumique 3 Web Studio)
 
+![License](https://img.shields.io/badge/License-MIT-yellow.svg)
+![Python](https://img.shields.io/badge/Python-3.10+-blue)
+![Status](https://img.shields.io/badge/Status-Active-success)
+
 > An open-source showcase tracking the architectural evolution of **LiemAI** (created by **Lương Minh Quân**) — from a minimalist command-line prototype (`v1.0`) to an Object-Oriented Multi-Model Terminal Studio (**LiemAI 3.0**) and a full-stack Dark-Mode Web Interface (**LiemAI Lumique 3**).
 
 ---
@@ -117,3 +121,17 @@ Execute these commands directly inside the terminal prompt:
 * Appreciation to the open-source communities behind Python and web libraries including `rich`, `flask`, `requests`, `python-dotenv`, **Tailwind CSS**, **Marked.js**, and **Highlight.js**.
 
 ---
+
+<div align="center">
+
+### 🤖 LiemAI
+
+Fun. Useful. Open.
+
+Built with passion for learning, productivity, and creativity.
+
+Copyright © 2026 MinhQuan Luong
+
+Licensed under the MIT License.
+
+</div>
