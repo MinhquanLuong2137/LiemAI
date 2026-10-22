@@ -121,3 +121,17 @@ Execute these commands directly inside the terminal prompt:
 * Appreciation to the open-source communities behind Python and web libraries including `rich`, `flask`, `requests`, `python-dotenv`, **Tailwind CSS**, **Marked.js**, and **Highlight.js**.
 
 ---
+
+<div align="center">
+
+### 🤖 LiemAI
+
+Fun. Useful. Open.
+
+Built with passion for learning, productivity, and creativity.
+
+Copyright © 2026 MinhQuan Luong
+
+Licensed under the MIT License.
+
+</div>
