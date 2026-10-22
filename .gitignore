@@ -3,6 +3,8 @@
 *.env
 *.png
 __pycache__/
+build/
+dist/
 *.exe
 *.spec
 Release/
