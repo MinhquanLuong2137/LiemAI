@@ -2,6 +2,10 @@ Try my first Vietnamese rebadged Chatbot (")>
 
 # ✨ LiemAI — Evolution of a Custom AI Assistant (CLI & Lumique 3 Web Studio)
 
+![License](https://img.shields.io/badge/License-MIT-yellow.svg)
+![Python](https://img.shields.io/badge/Python-3.10+-blue)
+![Status](https://img.shields.io/badge/Status-Active-success)
+
 > An open-source showcase tracking the architectural evolution of **LiemAI** (created by **Lương Minh Quân**) — from a minimalist command-line prototype (`v1.0`) to an Object-Oriented Multi-Model Terminal Studio (**LiemAI 3.0**) and a full-stack Dark-Mode Web Interface (**LiemAI Lumique 3**).
 
 ---
