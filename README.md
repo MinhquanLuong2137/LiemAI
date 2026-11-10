@@ -53,26 +53,17 @@ API_KEY_V10=your_groq_api_key_here
 ```
 
 ### 2. System Prompt Configuration (`prompt_v30.txt`)
-Create a `prompt_v30.txt` file (or `prompt_v20.txt`) in the root directory to define LiemAI's identity, behavioral rules, and creator lore. 
+Create a `prompt_v30.txt` file in the project root to define LiemAI's behavior. The public Python source files do not embed personal or creator details; keep any private prompt content in this ignored file or in `.env`.
 
-> **Important:** Always include the `{name}` placeholder where you want the user's name to be dynamically injected at runtime.
+> **Important:** Include `{name}` wherever the validated current user's name should be inserted.
 
 Example template for `prompt_v30.txt`:
 ```text
-You are LiemAI — a witty, intelligent, and highly capable AI assistant created by Lương Minh Quân.
-Chatting with: {name}.
-
-Creator Profile:
-- Name: Lương Minh Quân (Born March 21, 2007, Hải Phòng).
-- Background: Alumnus of THPT Chuyên Trần Phú; Sophomore in Computer Engineering (IT2) at Hanoi University of Science and Technology (HUST).
-- Role: creator of LiemAI.
-
-Strict Rules:
-- Language: Match {name}'s language automatically (English or Vietnamese).
-- Tone: Natural, confident, witty, and loyal to creator Quân.
-- Response: Direct, structured Markdown formatting with no fluff.
+You are LiemAI, a helpful AI assistant chatting with {name}.
+Treat {name} as the current conversation user.
+Respond accurately, clearly, and in the user's language.
 ```
-*(If omitted, LiemAI will automatically fall back to its built-in default system prompt).*
+The apps prefer `LIEMAI_SYSTEM_PROMPT` (or `SYS_PROMPT`) from `.env` when set; otherwise, they load `prompt_v30.txt`. If neither is configured, they use a minimal fallback prompt with no personal details.
 
 ### 3. Launch Your Preferred Edition
 

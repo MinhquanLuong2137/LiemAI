@@ -12,6 +12,27 @@ from flask import Flask, Response, jsonify, render_template_string, request, str
 
 load_dotenv()
 
+
+def load_system_prompt(user_name: str) -> str:
+    """Load a private prompt template and bind it to the validated user name."""
+    template = (
+        os.getenv("LIEMAI_SYSTEM_PROMPT")
+        or os.getenv("SYS_PROMPT")
+        or ""
+    ).strip()
+    if not template:
+        prompt_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "prompt_v30.txt")
+        try:
+            with open(prompt_path, "r", encoding="utf-8") as prompt_file:
+                template = prompt_file.read()
+        except FileNotFoundError:
+            template = (
+                "You are LiemAI, a helpful AI assistant. "
+                "The current conversation user is {name}."
+            )
+    return template.replace("{name}", user_name)
+
+
 app = Flask(__name__)
 
 # =====================================================================
@@ -21,7 +42,6 @@ class LiemConfig:
     MAX_CONTEXT_TURNS = 12  # Giữ 12 message gần nhất như bản 2.1[cite: 13, 23]
     QUESTION_LIMIT = 5      # Giới hạn bản Free[cite: 13, 23]
     SECRET_KEY = "key"      # Mã kích hoạt Premium[cite: 13, 23]
-    PROMPT_FILE = "prompt_v30.txt"
     INTELLIGENCE_FILE = "liemai_intelligence.json"
 
     GEMINI_API_KEY = (
@@ -41,7 +61,7 @@ class LiemConfig:
 
 class ChatState:
     def __init__(self):
-        self.user_name: str = "Lieman"
+        self.user_name: str = ""
         self.model_id: str = "gemini-3.5-flash"
         self.temperature: float = 0.7
         self.language: str = "vi"  # "vi" hoặc "en"
@@ -52,9 +72,7 @@ class ChatState:
         self.http_session = requests.Session()
 
         # Trí thông minh cá nhân & Kỹ năng (Skills)
-        self.personal_memory: str = (
-            "Người dùng là sinh viên tại ĐH Bách Khoa Hà Nội, đam mê lập trình và toán học."
-        )
+        self.personal_memory: str = ""
         self.skills: List[Dict] = [
             {
                 "id": "skill_oop",
@@ -101,15 +119,7 @@ class ChatState:
             pass
 
     def get_system_prompt(self) -> str:
-        base_prompt = f"You are LiemAI Lumique 3, an intelligent, helpful AI collaborator chatting with {self.user_name}."
-        for file_candidate in [LiemConfig.PROMPT_FILE, "prompt_v20.txt", "prompt_v15.txt"]:
-            if os.path.isfile(file_candidate):
-                try:
-                    with open(file_candidate, "r", encoding="utf-8") as f:
-                        base_prompt = f.read().replace("{name}", self.user_name)
-                        break
-                except Exception:
-                    pass
+        base_prompt = load_system_prompt(self.user_name)
 
         extra_blocks = []
         if self.personal_memory.strip():
@@ -200,6 +210,15 @@ class ChatState:
 
 
 state = ChatState()
+
+
+@app.before_request
+def require_user_name():
+    if request.endpoint in {"index", "api_settings", "static"}:
+        return None
+    if not state.user_name.strip():
+        return jsonify({"error": "Vui lòng nhập tên trước khi tiếp tục."}), 403
+    return None
 
 
 # =====================================================================
@@ -294,6 +313,23 @@ HTML_TEMPLATE = r"""
 </head>
 <body class="h-screen flex overflow-hidden select-none">
 
+    <div id="nameSetupModal" class="fixed inset-0 bg-black/90 backdrop-blur-sm z-[110] flex items-center justify-center p-4">
+        <form onsubmit="startWithUserName(event)" class="theme-card border rounded-2xl max-w-md w-full p-6 space-y-4 shadow-2xl">
+            <div>
+                <h2 class="text-lg font-bold text-rose-400">Chào mừng đến với LiemAI Lumique 3</h2>
+                <p class="text-sm theme-text-sub mt-1">Vui lòng nhập tên để bắt đầu.</p>
+            </div>
+            <label class="block text-sm font-medium" for="nameSetupInput">Tên của bạn</label>
+            <input id="nameSetupInput" type="text" autocomplete="name"
+                class="w-full theme-input border rounded-lg px-3 py-2 focus:outline-none focus:border-rose-500">
+            <p id="nameSetupError" class="hidden text-sm text-red-400" role="alert"></p>
+            <button type="submit"
+                class="w-full py-2.5 rounded-xl bg-gradient-to-r from-rose-600 to-red-500 hover:from-rose-500 hover:to-red-400 text-white text-sm font-semibold transition">
+                Tiếp tục
+            </button>
+        </form>
+    </div>
+
     <!-- SIDEBAR TRÁI -->
     <aside class="w-72 theme-sidebar border-r flex flex-col justify-between p-4 shrink-0">
         <div class="space-y-3.5 overflow-y-auto pr-1">
@@ -324,7 +360,7 @@ HTML_TEMPLATE = r"""
             <div class="theme-card p-3 rounded-xl border space-y-2.5">
                 <div>
                     <label class="text-[11px] uppercase tracking-wider theme-text-sub font-semibold" data-i18n="userNameLabel">Tên của bạn ({name})</label>
-                    <input id="userNameInput" type="text" value="Lieman" onchange="updateSettings()"
+                    <input id="userNameInput" type="text" value="" onchange="updateSettings()"
                         class="mt-1 w-full theme-input border rounded-lg px-2.5 py-1.5 text-sm focus:outline-none focus:border-rose-500">
                 </div>
                 <div>
@@ -523,7 +559,7 @@ HTML_TEMPLATE = r"""
 </div>
 
                 <h2 class="text-2xl md:text-3xl font-bold bg-gradient-to-r from-rose-400 via-red-400 to-amber-300 bg-clip-text text-transparent">
-                    <span data-i18n="welcomeGreeting">Xin chào</span> <span id="welcomeName">Lieman</span>, <span data-i18n="welcomeQuestion">hôm nay tôi có thể giúp gì cho bạn?</span>
+                    <span data-i18n="welcomeGreeting">Xin chào</span> <span id="welcomeName"></span>, <span data-i18n="welcomeQuestion">hôm nay tôi có thể giúp gì cho bạn?</span>
                 </h2>
                 <p class="text-sm theme-text-sub" data-i18n="welcomeDesc">
                     LiemAI Lumique 3 tích hợp truyền tải trực tiếp (SSE Streaming), Trí thông minh cá nhân và chuyển đổi nóng giữa Gemini & Groq.
@@ -594,7 +630,7 @@ HTML_TEMPLATE = r"""
                     <label class="text-xs font-semibold text-rose-400 uppercase tracking-wider block mb-1" data-i18n="sec1Title">
                         1. Trí thông minh cá nhân (Hồ sơ & Ngữ cảnh mặc định)
                     </label>
-                    <textarea id="personalMemoryInput" rows="3" placeholder="Ví dụ: Tôi là sinh viên IT2 Bách Khoa, thích giải thích code bằng Java/Python ngắn gọn..."
+                    <textarea id="personalMemoryInput" rows="3" placeholder="Ví dụ: Tôi thích giải thích code bằng Java/Python ngắn gọn..."
                         class="w-full theme-input border rounded-xl p-3 text-xs focus:outline-none focus:border-rose-500"></textarea>
                     <div class="flex justify-end mt-1.5">
                         <button onclick="savePersonalMemory()" class="px-3 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-500 text-white text-xs font-medium transition" data-i18n="saveMemoryBtn">
@@ -630,6 +666,42 @@ HTML_TEMPLATE = r"""
         let attachedFile = { name: "", content: "" };
         let abortController = null;
         let currentLang = 'vi';
+        let userNameReady = false;
+
+        async function startWithUserName(event) {
+            event.preventDefault();
+            const nameInput = document.getElementById('nameSetupInput');
+            const error = document.getElementById('nameSetupError');
+            const user_name = nameInput.value.trim();
+            if (!user_name) {
+                error.textContent = "❌ Tên không được để trống! Vui lòng nhập lại.";
+                error.classList.remove('hidden');
+                nameInput.focus();
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/settings', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ user_name })
+                });
+                const result = await response.json();
+                if (!response.ok) throw new Error(result.error || 'Không thể lưu tên người dùng.');
+
+                document.getElementById('userNameInput').value = user_name;
+                document.getElementById('welcomeName').innerText = user_name;
+                userNameReady = true;
+                document.getElementById('nameSetupModal').classList.add('hidden');
+                await updateSettings();
+                await refreshStatus();
+            } catch (err) {
+                userNameReady = false;
+                document.getElementById('nameSetupModal').classList.remove('hidden');
+                error.textContent = err.message;
+                error.classList.remove('hidden');
+            }
+        }
 
         // TỪ ĐIỂN SONG NGỮ (VIỆT - ANH) CHO TOÀN BỘ GIAO DIỆN
         const TRANSLATIONS = {
@@ -666,7 +738,7 @@ HTML_TEMPLATE = r"""
                 modalTitle: "Kỹ năng & Trí thông minh cá nhân",
                 modalSub: "Tùy chỉnh bộ nhớ dài hạn và các kỹ năng chuyên môn cho LiemAI",
                 sec1Title: "1. Trí thông minh cá nhân (Hồ sơ & Ngữ cảnh mặc định)",
-                sec1Placeholder: "Ví dụ: Tôi là sinh viên IT2 Bách Khoa, thích giải thích code bằng Java/Python ngắn gọn...",
+                sec1Placeholder: "Ví dụ: Tôi thích giải thích code bằng Java/Python ngắn gọn...",
                 saveMemoryBtn: "💾 Lưu Trí nhớ cá nhân",
                 sec2Title: "2. Danh sách Kỹ năng (Bật/Tắt linh hoạt)",
                 sec3Title: "＋ Thêm Kỹ năng (Skill) mới",
@@ -722,7 +794,7 @@ HTML_TEMPLATE = r"""
                 modalTitle: "Custom Skills & Personal Intelligence",
                 modalSub: "Customize long-term memory and specialized capabilities for LiemAI",
                 sec1Title: "1. Personal Intelligence (Default Profile & Context)",
-                sec1Placeholder: "E.g., I'm a CS sophomore at HUST, prefer concise Java/Python code explanations...",
+                sec1Placeholder: "E.g., I prefer concise Java/Python code explanations...",
                 saveMemoryBtn: "💾 Save Personal Memory",
                 sec2Title: "2. Custom Skills (Toggle ON/OFF)",
                 sec3Title: "＋ Add New Skill",
@@ -947,18 +1019,28 @@ HTML_TEMPLATE = r"""
         }
 
         async function updateSettings() {
-            const user_name = document.getElementById('userNameInput').value.trim() || "User";
+            if (!userNameReady) return;
+            const user_name = document.getElementById('userNameInput').value.trim();
+            if (!user_name) {
+                userNameReady = false;
+                document.getElementById('nameSetupModal').classList.remove('hidden');
+                document.getElementById('nameSetupError').textContent = "❌ Tên không được để trống! Vui lòng nhập lại.";
+                document.getElementById('nameSetupError').classList.remove('hidden');
+                document.getElementById('nameSetupInput').focus();
+                return;
+            }
             const model_id = document.getElementById('modelSelect').value;
             const temperature = parseFloat(document.getElementById('tempSlider').value);
             const is_persistent = document.getElementById('autoSaveToggle').checked;
             document.getElementById('welcomeName').innerText = user_name;
 
-            await fetch('/api/settings', {
+            const response = await fetch('/api/settings', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ user_name, model_id, temperature, is_persistent, language: currentLang })
             });
-            refreshStatus();
+            if (!response.ok) throw new Error('Không thể lưu cài đặt người dùng.');
+            await refreshStatus();
         }
 
         async function unlockPremium() {
@@ -1099,6 +1181,7 @@ HTML_TEMPLATE = r"""
         }
 
         async function refreshStatus() {
+            if (!userNameReady) return;
             const res = await fetch('/api/status');
             const data = await res.json();
             const t = TRANSLATIONS[currentLang] || TRANSLATIONS.vi;
@@ -1165,6 +1248,7 @@ HTML_TEMPLATE = r"""
 
         window.onload = function() {
             changeLanguage(currentLang);
+            document.getElementById('nameSetupInput').focus();
         };
     </script>
 </body>
@@ -1204,7 +1288,10 @@ def api_status():
 @app.route("/api/settings", methods=["POST"])
 def api_settings():
     data = request.json or {}
-    state.user_name = data.get("user_name", state.user_name)
+    user_name = data.get("user_name", state.user_name)
+    if not isinstance(user_name, str) or not user_name.strip():
+        return jsonify({"error": "Tên không được để trống! Vui lòng nhập lại."}), 400
+    state.user_name = user_name.strip()
     state.model_id = data.get("model_id", state.model_id)
     state.temperature = float(data.get("temperature", state.temperature))
     state.is_persistent = bool(data.get("is_persistent", state.is_persistent))

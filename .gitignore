@@ -1,6 +1,8 @@
 *.txt
 *.json
 *.env
+.env
+prompt_v30.txt
 *.png
 __pycache__/
 build/

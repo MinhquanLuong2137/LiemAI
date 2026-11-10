@@ -27,6 +27,26 @@ load_dotenv()
 console = Console()
 
 
+def load_system_prompt(user_name: str) -> str:
+    """Load a private prompt template and bind it to the validated user name."""
+    template = (
+        os.getenv("LIEMAI_SYSTEM_PROMPT")
+        or os.getenv("SYS_PROMPT")
+        or ""
+    ).strip()
+    if not template:
+        prompt_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "prompt_v30.txt")
+        try:
+            with open(prompt_path, "r", encoding="utf-8") as prompt_file:
+                template = prompt_file.read()
+        except FileNotFoundError:
+            template = (
+                "You are LiemAI, a helpful AI assistant. "
+                "The current conversation user is {name}."
+            )
+    return template.replace("{name}", user_name)
+
+
 # =====================================================================
 # 1. CLASS CẤU HÌNH HỆ THỐNG (CONFIG & MODELS REGISTRY)
 # =====================================================================
@@ -35,7 +55,6 @@ class LiemConfig:
     MAX_CONTEXT_TURNS = 16       # Lưu 8 cặp hỏi-đáp gần nhất
     QUESTION_LIMIT = 5           # Giới hạn bản Free
     SECRET_KEY = "key"           # Key kích hoạt Premium
-    DEFAULT_PROMPT_FILE = "prompt_v30.txt"
 
     # Tự động đọc các key sẵn có từ file .env của bạn
     GEMINI_API_KEY = (
@@ -349,15 +368,6 @@ class LiemAIApp:
         self.client = AIClient()
         self.session: Optional[SessionManager] = None
 
-    @staticmethod
-    def load_prompt_file(file_path: str, user_name: str) -> str:
-        try:
-            with open(file_path, "r", encoding="utf-8") as f:
-                template = f.read()
-            return template.replace("{name}", user_name)
-        except FileNotFoundError:
-            return f"You are LiemAI 3.0, an intelligent, witty AI collaborator chatting with {user_name}."
-
     def render_banner(self) -> None:
         os.system("cls" if os.name == "nt" else "clear")
         banner_text = Text.from_markup(
@@ -563,13 +573,19 @@ class LiemAIApp:
 
     def run(self) -> None:
         self.render_banner()
-        self.user_name = input("\n👤 Nhập tên của bạn (Enter = User): ").strip() or "User"
+        while True:
+            name = console.input("[bold cyan]Vui lòng nhập tên của bạn: [/bold cyan]").strip()
+            if name:
+                break
+            console.print("[bold red]❌ Tên không được để trống! Vui lòng nhập lại.[/bold red]")
+
+        self.user_name = name
+        self.sys_prompt = load_system_prompt(name)
 
         storage_choice = input("💾 Tự động lưu lịch sử phiên trò chuyện này? (Y/N): ").strip().lower()
         is_persistent = storage_choice == "y"
 
         self.session = SessionManager(self.user_name, is_persistent=is_persistent)
-        self.sys_prompt = self.load_prompt_file(LiemConfig.DEFAULT_PROMPT_FILE, self.user_name)
 
         print()
         self.render_help_table()
