@@ -1,6 +1,6 @@
 Try my first Vietnamese rebadged Chatbot (")>
 
-# ✨ LiemAI — Evolution of a Custom AI Assistant (CLI & Lumique 3 Web Studio)
+# <img src="icon.ico" width="32" height="32" alt="LiemAI Icon"> LiemAI — Evolution of a Custom AI Assistant (CLI & Lumique 3 Web Studio)
 
 ![License](https://img.shields.io/badge/License-MIT-yellow.svg)
 ![Python](https://img.shields.io/badge/Python-3.10+-blue)
